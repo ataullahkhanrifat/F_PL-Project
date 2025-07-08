@@ -75,7 +75,7 @@ class FPLOptimizer:
             self.model = None
     
     def predict_points(self, players_df):
-        """Predict points for all players"""
+        """Predict points for all players with FDR integration"""
         if self.model is not None:
             try:
                 # Features used in model training
@@ -99,43 +99,62 @@ class FPLOptimizer:
                 logger.info("Used trained model for predictions")
                 
             except Exception as e:
-                logger.warning(f"Error using model: {e}. Falling back to form-based prediction.")
-                players_df['predicted_points'] = players_df['form'] * 1.2  # Simple fallback
+                logger.warning(f"Model prediction failed: {e}. Using fallback prediction.")
+                # Fallback to form-based prediction
+                players_df['predicted_points'] = players_df['form'] * 2.5
         else:
-            # Fallback: use form as proxy for predicted points
-            players_df['predicted_points'] = players_df['form'] * 1.2
-            logger.info("Using form-based predictions")
+            # Fallback prediction based on form and recent performance
+            players_df['predicted_points'] = players_df['form'] * 2.5
         
-        # Apply position weights (removed in this update to focus on FDR)
-        players_df['weighted_points'] = players_df['predicted_points'].copy()
-        
-        # Apply FDR adjustments if available
+        # Apply FDR adjustments if enabled
         if self.use_fdr and 'fdr_overall' in players_df.columns:
-            # Lower FDR = easier fixtures = higher adjustment
-            # FDR scale: 1 (easiest) to 5 (hardest)
-            players_df['fdr_adjustment'] = 1 + ((5 - players_df['fdr_overall']) * self.fdr_weights['overall'])
-            
-            # Position-specific FDR adjustments
-            if 'fdr_attack' in players_df.columns:
-                # For attackers (midfielders, forwards), consider attack FDR
-                attack_positions = players_df['position'].isin(['Midfielder', 'Forward'])
-                players_df.loc[attack_positions, 'fdr_adjustment'] *= (1 + ((5 - players_df.loc[attack_positions, 'fdr_attack']) * self.fdr_weights['attack']))
-            
-            if 'fdr_defence' in players_df.columns:
-                # For defensive players (goalkeepers, defenders), consider defence FDR
-                def_positions = players_df['position'].isin(['Goalkeeper', 'Defender'])
-                players_df.loc[def_positions, 'fdr_adjustment'] *= (1 + ((5 - players_df.loc[def_positions, 'fdr_defence']) * self.fdr_weights['defence']))
-            
-            players_df['weighted_points'] *= players_df['fdr_adjustment']
-            logger.info("Applied FDR adjustments to player predictions")
-        else:
-            players_df['fdr_adjustment'] = 1.0
-        
-        # Add popularity bonus for starting XI (higher selected_by_percent gets slight boost)
-        players_df['popularity_factor'] = 1 + (players_df['selected_by_percent'] / 100) * 0.1
-        players_df['final_points'] = players_df['weighted_points'] * players_df['popularity_factor']
+            players_df = self.apply_fdr_adjustments(players_df)
         
         return players_df
+    
+    def apply_fdr_adjustments(self, players_df):
+        """Apply FDR adjustments to predicted points"""
+        logger.info("Applying FDR adjustments to predictions...")
+        
+        # Apply position-specific FDR adjustments
+        for idx, player in players_df.iterrows():
+            position = player['position']
+            base_points = player['predicted_points']
+            
+            # Get FDR values
+            fdr_attack = player.get('fdr_attack', 3.0)
+            fdr_defence = player.get('fdr_defence', 3.0)
+            fdr_overall = player.get('fdr_overall', 3.0)
+            
+            # Position-specific FDR impact
+            if position in ['Forward', 'Midfielder']:
+                # Attackers benefit more from low attack FDR
+                fdr_multiplier = 1 + (self.fdr_weights['attack'] * (5 - fdr_attack))
+                fdr_multiplier += self.fdr_weights['overall'] * (5 - fdr_overall)
+            elif position == 'Defender':
+                # Defenders benefit from low defence FDR (clean sheets)
+                fdr_multiplier = 1 + (self.fdr_weights['defence'] * (5 - fdr_defence))
+                fdr_multiplier += self.fdr_weights['overall'] * (5 - fdr_overall)
+            elif position == 'Goalkeeper':
+                # Goalkeepers benefit most from low defence FDR
+                fdr_multiplier = 1 + (self.fdr_weights['defence'] * 1.5 * (5 - fdr_defence))
+                fdr_multiplier += self.fdr_weights['overall'] * (5 - fdr_overall)
+            else:
+                fdr_multiplier = 1.0
+            
+            # Apply the adjustment
+            players_df.loc[idx, 'predicted_points'] = base_points * fdr_multiplier
+        
+        # Add FDR-adjusted derived metrics
+        players_df['fdr_adjusted_value'] = players_df['predicted_points'] / players_df['cost']
+        
+        logger.info("FDR adjustments applied successfully")
+        return players_df
+    
+    def set_fdr_weights(self, weights):
+        """Set FDR impact weights"""
+        self.fdr_weights.update(weights)
+        logger.info(f"FDR weights updated: {self.fdr_weights}")
     
     def optimize_squad(self, players_df):
         """
@@ -148,6 +167,9 @@ class FPLOptimizer:
             dict: Optimization results including selected players and total points
         """
         logger.info(f"Optimizing squad with budget £{self.budget}m (min usage: {self.min_budget_usage*100:.0f}%)")
+        
+        # Prepare final optimization points
+        players_df = self.prepare_final_points(players_df)
         
         # Filter out 'Manager' position if it exists
         players_df = players_df[players_df['position'] != 'Manager'].copy()
@@ -384,6 +406,22 @@ class FPLOptimizer:
         """Set FDR impact weights (e.g., {'attack': 0.15, 'defence': 0.1, 'overall': 0.05})"""
         self.fdr_weights.update(fdr_weights)
         logger.info(f"Updated FDR weights: {self.fdr_weights}")
+    
+    def prepare_final_points(self, players_df):
+        """Prepare final points for optimization including FDR adjustments"""
+        # Start with predicted points
+        players_df['weighted_points'] = players_df['predicted_points'].copy()
+        
+        # Add FDR-adjusted value if available
+        if 'fdr_adjusted_value' in players_df.columns:
+            players_df['fdr_value_score'] = players_df['fdr_adjusted_value'] * players_df['cost']
+            players_df['weighted_points'] = players_df['fdr_value_score']
+        
+        # Add popularity factor (slight boost for highly selected players)
+        players_df['popularity_factor'] = 1 + (players_df['selected_by_percent'] / 100) * 0.05
+        players_df['final_points'] = players_df['weighted_points'] * players_df['popularity_factor']
+        
+        return players_df
 
 def main():
     """Main function to run the optimizer with enhanced features"""

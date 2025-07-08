@@ -34,33 +34,807 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Force light theme
+st.markdown("""
+<script>
+    // Function to apply button styling
+    function styleButtons() {
+        // Style all buttons
+        const buttons = window.parent.document.querySelectorAll('button, [role="button"]');
+        buttons.forEach(button => {
+            button.style.backgroundColor = '#37003c';
+            button.style.color = '#ffffff';
+            button.style.border = '2px solid #37003c';
+            button.style.borderRadius = '0.5rem';
+            button.style.fontWeight = '600';
+            
+            // Style button text content
+            const textElements = button.querySelectorAll('span, p, div, *');
+            textElements.forEach(el => {
+                el.style.color = '#ffffff';
+                el.style.fontWeight = '600';
+            });
+            
+            // Add hover effect
+            button.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#5a0066';
+                this.style.borderColor = '#5a0066';
+            });
+            
+            button.addEventListener('mouseleave', function() {
+                this.style.backgroundColor = '#37003c';
+                this.style.borderColor = '#37003c';
+            });
+        });
+        
+        // Specifically target sidebar buttons
+        const sidebarButtons = window.parent.document.querySelectorAll('[data-testid="stSidebar"] button, .css-1d391kg button, .css-1cypcdb button');
+        sidebarButtons.forEach(button => {
+            button.style.backgroundColor = '#37003c';
+            button.style.color = '#ffffff';
+            button.style.border = '2px solid #37003c';
+            button.style.borderRadius = '0.5rem';
+            button.style.fontWeight = '600';
+            button.style.width = '100%';
+            button.style.marginBottom = '0.5rem';
+            
+            // Force all child elements to white text
+            const allChildren = button.querySelectorAll('*');
+            allChildren.forEach(child => {
+                child.style.color = '#ffffff';
+                child.style.backgroundColor = 'transparent';
+            });
+        });
+    }
+    
+    // Force light theme
+    const stApp = window.parent.document.querySelector('.stApp');
+    if (stApp) {
+        stApp.style.backgroundColor = '#ffffff';
+        stApp.style.color = '#262730';
+    }
+    
+    // Force sidebar light theme
+    const sidebar = window.parent.document.querySelector('[data-testid="stSidebar"]');
+    if (sidebar) {
+        sidebar.style.backgroundColor = '#f0f2f6';
+        sidebar.style.color = '#262730';
+    }
+    
+    // Force header light theme
+    const header = window.parent.document.querySelector('[data-testid="stHeader"]');
+    if (header) {
+        header.style.backgroundColor = '#ffffff';
+        header.style.color = '#262730';
+    }
+    
+    // Apply button styling
+    styleButtons();
+    
+    // Re-apply button styling when content changes
+    const observer = new MutationObserver(function(mutations) {
+        styleButtons();
+    });
+    
+    observer.observe(window.parent.document.body, {
+        childList: true,
+        subtree: true
+    });
+    
+    // Remove any dark theme classes
+    const darkElements = window.parent.document.querySelectorAll('[class*="dark"], [class*="Dark"]');
+    darkElements.forEach(el => {
+        el.style.backgroundColor = '#ffffff';
+        el.style.color = '#262730';
+    });
+    
+    // Force theme attribute
+    window.parent.document.documentElement.setAttribute('data-theme', 'light');
+    window.parent.document.body.setAttribute('data-theme', 'light');
+    
+    // Function to fix dropdown options
+    function fixDropdownOptions() {
+        // Target all dropdown option elements
+        const dropdownOptions = window.parent.document.querySelectorAll(
+            '[data-baseweb="popover"] li, ' +
+            '[data-baseweb="menu"] li, ' +
+            '[data-baseweb="select"] li, ' +
+            '.stSelectbox li, ' +
+            '[role="option"], ' +
+            '[data-testid="stSelectbox"] li, ' +
+            '[data-baseweb="popover"] div, ' +
+            '[data-baseweb="menu"] div, ' +
+            '[data-baseweb="select"] div'
+        );
+        
+        dropdownOptions.forEach(option => {
+            // Default state
+            if (!option.hasAttribute('aria-selected') || option.getAttribute('aria-selected') === 'false') {
+                option.style.backgroundColor = '#ffffff';
+                option.style.color = '#262730';
+                // Force all child elements to inherit color
+                const children = option.querySelectorAll('*');
+                children.forEach(child => {
+                    child.style.color = '#262730';
+                });
+            }
+            
+            // Hover state
+            option.addEventListener('mouseenter', function() {
+                this.style.backgroundColor = '#37003c';
+                this.style.color = '#ffffff';
+                // Force all child elements to white
+                const children = this.querySelectorAll('*');
+                children.forEach(child => {
+                    child.style.color = '#ffffff';
+                });
+            });
+            
+            option.addEventListener('mouseleave', function() {
+                if (!this.hasAttribute('aria-selected') || this.getAttribute('aria-selected') === 'false') {
+                    this.style.backgroundColor = '#ffffff';
+                    this.style.color = '#262730';
+                    // Force all child elements back to dark
+                    const children = this.querySelectorAll('*');
+                    children.forEach(child => {
+                        child.style.color = '#262730';
+                    });
+                }
+            });
+            
+            // Selected state
+            if (option.hasAttribute('aria-selected') && option.getAttribute('aria-selected') === 'true') {
+                option.style.backgroundColor = '#37003c';
+                option.style.color = '#ffffff';
+                // Force all child elements to white
+                const children = option.querySelectorAll('*');
+                children.forEach(child => {
+                    child.style.color = '#ffffff';
+                });
+            }
+        });
+        
+        // Also fix the selected value display in the dropdown input
+        const selectedValues = window.parent.document.querySelectorAll(
+            '[data-baseweb="select"] [data-baseweb="select-dropdown"], ' +
+            '[data-testid="stSelectbox"] [data-baseweb="select"] > div, ' +
+            '.stSelectbox [data-baseweb="select"] > div'
+        );
+        
+        selectedValues.forEach(selected => {
+            if (selected.style.backgroundColor === 'rgb(55, 0, 60)' || selected.style.backgroundColor === '#37003c') {
+                selected.style.color = '#ffffff';
+                const children = selected.querySelectorAll('*');
+                children.forEach(child => {
+                    child.style.color = '#ffffff';
+                });
+            }
+        });
+        
+        // Fix multiselect selected option buttons
+        const multiselectButtons = window.parent.document.querySelectorAll(
+            '[data-baseweb="tag"], ' +
+            '[data-testid="stMultiSelect"] button, ' +
+            '.stMultiSelect button, ' +
+            '[data-baseweb="tag"] button, ' +
+            '[data-baseweb="tag"] span, ' +
+            '[data-baseweb="tag"] div'
+        );
+        
+        multiselectButtons.forEach(button => {
+            // Check if it has a dark background
+            const computedStyle = window.getComputedStyle(button);
+            const bgColor = computedStyle.backgroundColor;
+            
+            if (bgColor === 'rgb(55, 0, 60)' || bgColor === '#37003c' || 
+                button.style.backgroundColor === 'rgb(55, 0, 60)' || 
+                button.style.backgroundColor === '#37003c') {
+                button.style.color = '#ffffff';
+                button.style.backgroundColor = '#37003c';
+                
+                // Force all child elements to white
+                const children = button.querySelectorAll('*');
+                children.forEach(child => {
+                    child.style.color = '#ffffff';
+                    if (child.tagName === 'SVG') {
+                        child.style.fill = '#ffffff';
+                        child.style.color = '#ffffff';
+                    }
+                    if (child.tagName === 'PATH') {
+                        child.style.fill = '#ffffff';
+                        child.style.stroke = '#ffffff';
+                    }
+                });
+                
+                // Force SVG icons (like close/cross buttons) to be white
+                const svgs = button.querySelectorAll('svg');
+                svgs.forEach(svg => {
+                    svg.style.fill = '#ffffff';
+                    svg.style.color = '#ffffff';
+                    const paths = svg.querySelectorAll('path');
+                    paths.forEach(path => {
+                        path.style.fill = '#ffffff';
+                        path.style.stroke = '#ffffff';
+                    });
+                });
+            }
+        });
+        
+        // Fix all multiselect close/cross buttons specifically
+        const closeButtons = window.parent.document.querySelectorAll(
+            '[data-baseweb="tag"] [role="button"], ' +
+            '[data-baseweb="tag"] button[title*="Remove"], ' +
+            '[data-baseweb="tag"] button[aria-label*="Remove"], ' +
+            '[data-testid="stMultiSelect"] [role="button"], ' +
+            '.stMultiSelect [role="button"]'
+        );
+        
+        closeButtons.forEach(closeBtn => {
+            closeBtn.style.backgroundColor = 'transparent';
+            closeBtn.style.color = '#ffffff';
+            closeBtn.style.border = 'none';
+            
+            // Force all SVG elements to be white
+            const svgs = closeBtn.querySelectorAll('svg');
+            svgs.forEach(svg => {
+                svg.style.fill = '#ffffff';
+                svg.style.color = '#ffffff';
+                svg.style.stroke = '#ffffff';
+                const paths = svg.querySelectorAll('path');
+                paths.forEach(path => {
+                    path.style.fill = '#ffffff';
+                    path.style.stroke = '#ffffff';
+                });
+            });
+            
+            // Force all text content to be white
+            const allChildren = closeBtn.querySelectorAll('*');
+            allChildren.forEach(child => {
+                child.style.color = '#ffffff';
+                if (child.tagName === 'SVG') {
+                    child.style.fill = '#ffffff';
+                    child.style.color = '#ffffff';
+                }
+                if (child.tagName === 'PATH') {
+                    child.style.fill = '#ffffff';
+                    child.style.stroke = '#ffffff';
+                }
+            });
+        });
+        
+        // Fix number input controls
+        const numberInputs = window.parent.document.querySelectorAll(
+            '[data-testid="stNumberInput"] input, ' +
+            '.stNumberInput input, ' +
+            'input[type="number"]'
+        );
+        
+        numberInputs.forEach(input => {
+            input.style.backgroundColor = '#ffffff';
+            input.style.color = '#262730';
+            input.style.border = '1px solid #e0e0e0';
+        });
+        
+        // Fix number input buttons (up/down arrows)
+        const numberButtons = window.parent.document.querySelectorAll(
+            '[data-testid="stNumberInput"] button, ' +
+            '.stNumberInput button, ' +
+            'input[type="number"] + button, ' +
+            'button[aria-label="increment"], ' +
+            'button[aria-label="decrement"]'
+        );
+        
+        numberButtons.forEach(button => {
+            button.style.backgroundColor = '#37003c';
+            button.style.color = '#ffffff';
+            button.style.border = '1px solid #37003c';
+            button.style.borderRadius = '0.25rem';
+            
+            // Force all child elements to white
+            const children = button.querySelectorAll('*');
+            children.forEach(child => {
+                child.style.color = '#ffffff';
+                if (child.tagName === 'SVG') {
+                    child.style.fill = '#ffffff';
+                }
+                if (child.tagName === 'PATH') {
+                    child.style.fill = '#ffffff';
+                    child.style.stroke = '#ffffff';
+                }
+            });
+            
+            // Force SVG icons to be white
+            const svgs = button.querySelectorAll('svg');
+            svgs.forEach(svg => {
+                svg.style.fill = '#ffffff';
+                svg.style.color = '#ffffff';
+                const paths = svg.querySelectorAll('path');
+                paths.forEach(path => {
+                    path.style.fill = '#ffffff';
+                    path.style.stroke = '#ffffff';
+                });
+            });
+            
+            // Force any text content to be white
+            if (button.textContent) {
+                button.style.color = '#ffffff';
+            }
+        });
+    }
+    
+    // Apply dropdown fixes
+    fixDropdownOptions();
+    
+    // Re-apply dropdown fixes when content changes
+    const dropdownObserver = new MutationObserver(function(mutations) {
+        fixDropdownOptions();
+    });
+    
+    dropdownObserver.observe(window.parent.document.body, {
+        childList: true,
+        subtree: true
+    });
+</script>
+""", unsafe_allow_html=True)
+
 # Initialize session state for page navigation
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'optimizer'
 
-# Custom CSS
+# Custom CSS for Complete Light Theme
 st.markdown("""
 <style>
+    /* Force light theme for entire app */
+    .stApp {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+    }
+    
+    /* Main content area */
+    .main .block-container {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+        padding-top: 2rem;
+    }
+    
+    /* Sidebar styling - multiple selectors to ensure coverage */
+    .css-1d391kg, 
+    .css-1cypcdb,
+    .css-1y4p8pa,
+    .css-1lcbmhc,
+    .css-17eq0hr,
+    section[data-testid="stSidebar"] {
+        background-color: #f0f2f6 !important;
+        color: #262730 !important;
+    }
+    
+    /* Sidebar content */
+    .css-1d391kg .element-container,
+    .css-1cypcdb .element-container,
+    section[data-testid="stSidebar"] .element-container {
+        color: #262730 !important;
+    }
+    
+    /* Sidebar headers */
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3 {
+        color: #37003c !important;
+    }
+    
+    /* Navigation bar / header */
+    .css-18e3th9,
+    .css-1avcm0n,
+    .css-k1vhr4,
+    header[data-testid="stHeader"] {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+    }
+    
+    /* Top toolbar */
+    .css-1544g2n,
+    .css-18ni7ap,
+    .css-6qob1r {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+    }
+    
+    /* Headers and text */
     .main-header {
         font-size: 3rem;
-        color: #37003c;
+        color: #37003c !important;
         text-align: center;
         margin-bottom: 2rem;
         font-weight: bold;
+        background-color: transparent !important;
     }
+    
+    /* All text elements */
+    p, span, div, label, .stMarkdown {
+        color: #262730 !important;
+    }
+    
+    /* Buttons and inputs - comprehensive styling */
+    .stButton > button,
+    button[kind="primary"],
+    button[kind="secondary"],
+    .stDownloadButton > button {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+        border: 2px solid #37003c !important;
+        border-radius: 0.5rem !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1rem !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stButton > button:hover,
+    button[kind="primary"]:hover,
+    button[kind="secondary"]:hover,
+    .stDownloadButton > button:hover {
+        background-color: #5a0066 !important;
+        color: #ffffff !important;
+        border-color: #5a0066 !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 8px rgba(55, 0, 60, 0.3) !important;
+    }
+    
+    /* Primary button specific styling */
+    button[kind="primary"] {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+        border: 2px solid #37003c !important;
+    }
+    
+    /* Secondary button styling */
+    button[kind="secondary"] {
+        background-color: #ffffff !important;
+        color: #37003c !important;
+        border: 2px solid #37003c !important;
+    }
+    
+    button[kind="secondary"]:hover {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    /* Ensure button text is always visible */
+    .stButton button span,
+    .stDownloadButton button span {
+        color: inherit !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Selectboxes */
+    .stSelectbox > div > div {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+        border: 1px solid #e0e0e0 !important;
+    }
+    
+    .stSelectbox label {
+        color: #262730 !important;
+    }
+    
+    /* Dropdown options styling */
+    .stSelectbox ul {
+        background-color: #ffffff !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 0.5rem !important;
+    }
+    
+    .stSelectbox li {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+        padding: 0.5rem 1rem !important;
+    }
+    
+    .stSelectbox li:hover {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    .stSelectbox li[aria-selected="true"] {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    /* Dropdown menu items - more specific selectors */
+    [data-baseweb="select"] ul {
+        background-color: #ffffff !important;
+        border: 1px solid #e0e0e0 !important;
+    }
+    
+    [data-baseweb="select"] li {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+    }
+    
+    [data-baseweb="select"] li:hover {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    [data-baseweb="select"] li[aria-selected="true"] {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    /* Dropdown options - BaseWeb selectors */
+    [data-baseweb="menu"] {
+        background-color: #ffffff !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 0.5rem !important;
+    }
+    
+    [data-baseweb="menu"] li {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+        padding: 0.5rem 1rem !important;
+    }
+    
+    [data-baseweb="menu"] li:hover {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    [data-baseweb="menu"] li[aria-selected="true"] {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    /* Text inputs */
+    .stTextInput > div > div > input {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+        border: 1px solid #e0e0e0 !important;
+    }
+    
+    .stTextInput label {
+        color: #262730 !important;
+    }
+    
+    /* Multiselect */
+    .stMultiSelect > div > div {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+        border: 1px solid #e0e0e0 !important;
+    }
+    
+    .stMultiSelect label {
+        color: #262730 !important;
+    }
+    
+    /* Sliders */
+    .stSlider > div > div {
+        background-color: #ffffff !important;
+    }
+    
+    .stSlider label {
+        color: #262730 !important;
+    }
+    
+    /* Number inputs */
+    .stNumberInput > div > div > input {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+        border: 1px solid #e0e0e0 !important;
+    }
+    
+    .stNumberInput label {
+        color: #262730 !important;
+    }
+    
+    /* Number input container */
+    .stNumberInput > div > div {
+        background-color: #ffffff !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 0.5rem !important;
+    }
+    
+    /* Number input buttons (up/down arrows) */
+    .stNumberInput button,
+    [data-testid="stNumberInput"] button,
+    input[type="number"] + button,
+    button[aria-label="increment"],
+    button[aria-label="decrement"] {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+        border: 1px solid #37003c !important;
+        border-radius: 0.25rem !important;
+        padding: 0.25rem !important;
+        margin: 0.125rem !important;
+    }
+    
+    .stNumberInput button:hover,
+    [data-testid="stNumberInput"] button:hover,
+    input[type="number"] + button:hover,
+    button[aria-label="increment"]:hover,
+    button[aria-label="decrement"]:hover {
+        background-color: #5a0066 !important;
+        color: #ffffff !important;
+        border-color: #5a0066 !important;
+    }
+    
+    /* Number input button text */
+    .stNumberInput button span,
+    .stNumberInput button div,
+    [data-testid="stNumberInput"] button span,
+    [data-testid="stNumberInput"] button div {
+        color: #ffffff !important;
+    }
+    
+    /* Number input button arrows - specific targeting */
+    .stNumberInput button::before,
+    .stNumberInput button::after,
+    [data-testid="stNumberInput"] button::before,
+    [data-testid="stNumberInput"] button::after {
+        color: #ffffff !important;
+    }
+    
+    /* Force arrow symbols to be white */
+    .stNumberInput button[aria-label*="increment"]::before,
+    .stNumberInput button[aria-label*="decrement"]::before,
+    [data-testid="stNumberInput"] button[aria-label*="increment"]::before,
+    [data-testid="stNumberInput"] button[aria-label*="decrement"]::before {
+        content: "";
+        color: #ffffff !important;
+    }
+    
+    /* Target the actual arrow text content */
+    .stNumberInput button[title*="increment"],
+    .stNumberInput button[title*="decrement"],
+    .stNumberInput button[aria-label*="increment"],
+    .stNumberInput button[aria-label*="decrement"],
+    [data-testid="stNumberInput"] button[title*="increment"],
+    [data-testid="stNumberInput"] button[title*="decrement"],
+    [data-testid="stNumberInput"] button[aria-label*="increment"],
+    [data-testid="stNumberInput"] button[aria-label*="decrement"] {
+        color: #ffffff !important;
+        background-color: #37003c !important;
+        border: 1px solid #37003c !important;
+    }
+    
+    /* All elements inside number input buttons */
+    .stNumberInput button *,
+    [data-testid="stNumberInput"] button * {
+        color: #ffffff !important;
+    }
+    
+    /* SVG icons in number input buttons */
+    .stNumberInput button svg,
+    [data-testid="stNumberInput"] button svg {
+        fill: #ffffff !important;
+        color: #ffffff !important;
+    }
+    
+    .stNumberInput button svg path,
+    [data-testid="stNumberInput"] button svg path {
+        fill: #ffffff !important;
+        stroke: #ffffff !important;
+    }
+    
+    /* Number input spinners */
+    .stNumberInput input[type="number"]::-webkit-outer-spin-button,
+    .stNumberInput input[type="number"]::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    
+    .stNumberInput input[type="number"] {
+        -moz-appearance: textfield;
+    }
+    
+    /* Checkboxes */
+    .stCheckbox label {
+        color: #262730 !important;
+    }
+    
+    /* Expanders */
+    .streamlit-expanderHeader {
+        background-color: #f0f2f6 !important;
+        color: #262730 !important;
+    }
+    
+    .streamlit-expanderContent {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+    }
+    
+    /* Force override any remaining dark elements */
+    * {
+        scrollbar-color: #cccccc #f0f2f6 !important;
+    }
+    
+    /* Additional button fixes - target any missed elements */
+    div[data-testid="stButton"] button,
+    div[data-testid="stDownloadButton"] button {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+        border: 2px solid #37003c !important;
+    }
+    
+    div[data-testid="stButton"] button:hover,
+    div[data-testid="stDownloadButton"] button:hover {
+        background-color: #5a0066 !important;
+        color: #ffffff !important;
+        border-color: #5a0066 !important;
+    }
+    
+    /* Button text elements specifically */
+    button p, button span, button div {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+    }
+    
+    /* Any remaining button elements */
+    [role="button"] {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+        border: 2px solid #37003c !important;
+    }
+    
+    [role="button"]:hover {
+        background-color: #5a0066 !important;
+        color: #ffffff !important;
+    }
+    
+    /* Force override for button containers */
+    [data-testid="stButton"],
+    [data-testid="stDownloadButton"] {
+        background-color: transparent !important;
+    }
+    
+    /* Streamlit button widget containers */
+    .element-container button,
+    .stButton button,
+    .row-widget button {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+        border: 2px solid #37003c !important;
+    }
+    
+    /* Ultimate fallback for any dark buttons */
+    button:not([style*="background-color: #37003c"]) {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+        border: 2px solid #37003c !important;
+    }
+    
+    /* Sidebar elements specifically */
+    section[data-testid="stSidebar"] * {
+        color: #262730 !important;
+    }
+    
+    section[data-testid="stSidebar"] .stMarkdown {
+        color: #262730 !important;
+    }
+    
+    section[data-testid="stSidebar"] label {
+        color: #262730 !important;
+    }
+    
+    /* Metric cards */
     .metric-card {
-        background-color: #f0f2f6;
+        background-color: #f8f9fa;
         padding: 1rem;
         border-radius: 0.5rem;
         border-left: 4px solid #37003c;
+        color: #262730;
     }
+    
+    /* Player cards */
     .player-card {
         background-color: #ffffff;
         padding: 1rem;
         border-radius: 0.5rem;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         margin-bottom: 0.5rem;
+        border: 1px solid #e0e0e0;
+        color: #262730;
     }
+    
+    /* Stats cards */
     .stats-card {
         background-color: #ffffff;
         padding: 1.5rem;
@@ -68,29 +842,440 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         margin-bottom: 1rem;
         border: 1px solid #e0e0e0;
+        color: #262730;
     }
+    
+    /* Stats headers */
     .stats-header {
         color: #37003c;
         font-size: 1.5rem;
         font-weight: bold;
         margin-bottom: 1rem;
         text-align: center;
+        background-color: transparent;
     }
+    
+    /* Navigation buttons */
     .nav-button {
-        background-color: #37003c;
-        color: white;
-        border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 0.5rem;
-        margin: 0.25rem;
-        cursor: pointer;
+        background-color: #37003c !important;
+        color: white !important;
+        border: none !important;
+        padding: 0.5rem 1rem !important;
+        border-radius: 0.5rem !important;
+        margin: 0.25rem !important;
+        cursor: pointer !important;
+        font-weight: 600 !important;
     }
     .nav-button:hover {
-        background-color: #5a0066;
+        background-color: #5a0066 !important;
+        color: white !important;
     }
     .nav-button.active {
-        background-color: #00ff87;
-        color: #37003c;
+        background-color: #00ff87 !important;
+        color: #37003c !important;
+    }
+    
+    /* Sidebar navigation buttons specifically - multiple selectors */
+    section[data-testid="stSidebar"] .stButton > button,
+    section[data-testid="stSidebar"] button,
+    section[data-testid="stSidebar"] [data-testid="stButton"] button,
+    section[data-testid="stSidebar"] div[data-testid="stButton"] > button,
+    .css-1d391kg .stButton > button,
+    .css-1cypcdb .stButton > button {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+        border: 2px solid #37003c !important;
+        width: 100% !important;
+        margin-bottom: 0.5rem !important;
+        font-weight: 600 !important;
+        box-shadow: none !important;
+    }
+    
+    section[data-testid="stSidebar"] .stButton > button:hover,
+    section[data-testid="stSidebar"] button:hover,
+    section[data-testid="stSidebar"] [data-testid="stButton"] button:hover,
+    section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover,
+    .css-1d391kg .stButton > button:hover,
+    .css-1cypcdb .stButton > button:hover {
+        background-color: #5a0066 !important;
+        color: #ffffff !important;
+        border-color: #5a0066 !important;
+        box-shadow: 0 2px 4px rgba(55, 0, 60, 0.3) !important;
+    }
+    
+    /* Ensure sidebar button text is visible - all possible text elements */
+    section[data-testid="stSidebar"] .stButton button span,
+    section[data-testid="stSidebar"] .stButton button p,
+    section[data-testid="stSidebar"] .stButton button div,
+    section[data-testid="stSidebar"] button span,
+    section[data-testid="stSidebar"] button p,
+    section[data-testid="stSidebar"] button div,
+    .css-1d391kg .stButton button *,
+    .css-1cypcdb .stButton button * {
+        color: #ffffff !important;
+        font-weight: 600 !important;
+        background-color: transparent !important;
+    }
+    
+    /* Force all sidebar buttons to use light theme */
+    .css-1d391kg button,
+    .css-1cypcdb button,
+    .css-1y4p8pa button,
+    .css-1lcbmhc button {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+        border: 2px solid #37003c !important;
+    }
+    
+    /* Force light theme for various Streamlit elements */
+    .stSelectbox > div > div {
+        background-color: #ffffff;
+        color: #262730;
+    }
+    
+    .stTextInput > div > div > input {
+        background-color: #ffffff;
+        color: #262730;
+    }
+    
+    .stSlider > div > div {
+        background-color: #ffffff;
+    }
+    
+    /* Additional dropdown styling for Streamlit components */
+    [data-baseweb="popover"] {
+        background-color: #ffffff !important;
+        border: 1px solid #e0e0e0 !important;
+        border-radius: 0.5rem !important;
+    }
+    
+    [data-baseweb="popover"] ul {
+        background-color: #ffffff !important;
+        border: none !important;
+    }
+    
+    [data-baseweb="popover"] li {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+        padding: 0.5rem 1rem !important;
+    }
+    
+    [data-baseweb="popover"] li:hover {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    [data-baseweb="popover"] li[aria-selected="true"] {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    /* Streamlit select dropdown options */
+    [data-testid="stSelectbox"] div[data-baseweb="select"] {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+    }
+    
+    [data-testid="stSelectbox"] [data-baseweb="popover"] {
+        background-color: #ffffff !important;
+        border: 1px solid #e0e0e0 !important;
+    }
+    
+    [data-testid="stSelectbox"] [data-baseweb="popover"] ul {
+        background-color: #ffffff !important;
+    }
+    
+    [data-testid="stSelectbox"] [data-baseweb="popover"] li {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+    }
+    
+    [data-testid="stSelectbox"] [data-baseweb="popover"] li:hover {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    [data-testid="stSelectbox"] [data-baseweb="popover"] li[aria-selected="true"] {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    /* Force white text for any dark background dropdown items */
+    [data-baseweb="popover"] li[style*="background-color: rgb(55, 0, 60)"],
+    [data-baseweb="popover"] li[style*="background-color: #37003c"],
+    [data-baseweb="menu"] li[style*="background-color: rgb(55, 0, 60)"],
+    [data-baseweb="menu"] li[style*="background-color: #37003c"],
+    [data-baseweb="select"] li[style*="background-color: rgb(55, 0, 60)"],
+    [data-baseweb="select"] li[style*="background-color: #37003c"] {
+        color: #ffffff !important;
+    }
+    
+    /* Force all dropdown text elements to inherit color */
+    [data-baseweb="popover"] li *,
+    [data-baseweb="menu"] li *,
+    [data-baseweb="select"] li *,
+    .stSelectbox li *,
+    [role="option"] * {
+        color: inherit !important;
+    }
+    
+    /* Selected dropdown value styling */
+    [data-baseweb="select"] [data-baseweb="select-dropdown"] {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+    }
+    
+    [data-baseweb="select"] [data-baseweb="select-dropdown"][style*="background-color: rgb(55, 0, 60)"],
+    [data-baseweb="select"] [data-baseweb="select-dropdown"][style*="background-color: #37003c"] {
+        color: #ffffff !important;
+    }
+    
+    [data-baseweb="select"] [data-baseweb="select-dropdown"] * {
+        color: inherit !important;
+    }
+    
+    /* Streamlit selectbox selected value */
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+    }
+    
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div[style*="background-color: rgb(55, 0, 60)"],
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div[style*="background-color: #37003c"] {
+        color: #ffffff !important;
+    }
+    
+    [data-testid="stSelectbox"] [data-baseweb="select"] > div * {
+        color: inherit !important;
+    }
+    
+    /* Force correct colors for any dropdown with dark background */
+    [data-baseweb="select"][style*="background-color: rgb(55, 0, 60)"],
+    [data-baseweb="select"][style*="background-color: #37003c"] {
+        color: #ffffff !important;
+    }
+    
+    [data-baseweb="select"][style*="background-color: rgb(55, 0, 60)"] *,
+    [data-baseweb="select"][style*="background-color: #37003c"] * {
+        color: #ffffff !important;
+    }
+    
+    /* Ultimate fallback for dropdown options */
+    div[data-baseweb="popover"] ul li,
+    div[data-baseweb="menu"] ul li {
+        background-color: #ffffff !important;
+        color: #262730 !important;
+    }
+    
+    div[data-baseweb="popover"] ul li:hover,
+    div[data-baseweb="menu"] ul li:hover {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    div[data-baseweb="popover"] ul li[aria-selected="true"],
+    div[data-baseweb="menu"] ul li[aria-selected="true"] {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    /* Force all child elements in dropdown options to inherit color */
+    div[data-baseweb="popover"] ul li *,
+    div[data-baseweb="menu"] ul li *,
+    [data-baseweb="popover"] li *,
+    [data-baseweb="menu"] li * {
+        color: inherit !important;
+    }
+    
+    /* Multiselect selected option buttons */
+    [data-baseweb="tag"] {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+        border: 1px solid #37003c !important;
+    }
+    
+    [data-baseweb="tag"] * {
+        color: #ffffff !important;
+    }
+    
+    [data-baseweb="tag"] button {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+        border: none !important;
+    }
+    
+    [data-baseweb="tag"] button * {
+        color: #ffffff !important;
+    }
+    
+    [data-baseweb="tag"] span {
+        color: #ffffff !important;
+    }
+    
+    /* Fix cross/close button SVG in multiselect tags */
+    [data-baseweb="tag"] svg {
+        fill: #ffffff !important;
+        color: #ffffff !important;
+    }
+    
+    [data-baseweb="tag"] svg path {
+        fill: #ffffff !important;
+        stroke: #ffffff !important;
+    }
+    
+    [data-baseweb="tag"] button svg {
+        fill: #ffffff !important;
+        color: #ffffff !important;
+    }
+    
+    [data-baseweb="tag"] button svg path {
+        fill: #ffffff !important;
+        stroke: #ffffff !important;
+    }
+    
+    /* Fix all multiselect close/cross buttons specifically */
+    [data-baseweb="tag"] [role="button"],
+    [data-baseweb="tag"] button[title*="Remove"],
+    [data-baseweb="tag"] button[aria-label*="Remove"],
+    [data-testid="stMultiSelect"] [role="button"],
+    .stMultiSelect [role="button"] {
+        background-color: transparent !important;
+        color: #ffffff !important;
+        border: none !important;
+    }
+    
+    [data-baseweb="tag"] [role="button"] *,
+    [data-baseweb="tag"] button[title*="Remove"] *,
+    [data-baseweb="tag"] button[aria-label*="Remove"] *,
+    [data-testid="stMultiSelect"] [role="button"] *,
+    .stMultiSelect [role="button"] * {
+        color: #ffffff !important;
+    }
+    
+    [data-baseweb="tag"] [role="button"] svg,
+    [data-baseweb="tag"] button[title*="Remove"] svg,
+    [data-baseweb="tag"] button[aria-label*="Remove"] svg,
+    [data-testid="stMultiSelect"] [role="button"] svg,
+    .stMultiSelect [role="button"] svg {
+        fill: #ffffff !important;
+        color: #ffffff !important;
+        stroke: #ffffff !important;
+    }
+    
+    [data-baseweb="tag"] [role="button"] svg path,
+    [data-baseweb="tag"] button[title*="Remove"] svg path,
+    [data-baseweb="tag"] button[aria-label*="Remove"] svg path,
+    [data-testid="stMultiSelect"] [role="button"] svg path,
+    .stMultiSelect [role="button"] svg path {
+        fill: #ffffff !important;
+        stroke: #ffffff !important;
+    }
+    
+    /* Ultimate fallback for any button inside multiselect tags */
+    [data-baseweb="tag"] button,
+    [data-testid="stMultiSelect"] [data-baseweb="tag"] button,
+    .stMultiSelect [data-baseweb="tag"] button {
+        background-color: transparent !important;
+        color: #ffffff !important;
+        border: none !important;
+    }
+    
+    [data-baseweb="tag"] button *,
+    [data-testid="stMultiSelect"] [data-baseweb="tag"] button *,
+    .stMultiSelect [data-baseweb="tag"] button * {
+        color: #ffffff !important;
+        fill: #ffffff !important;
+        stroke: #ffffff !important;
+    }
+    
+    /* Streamlit multiselect selected items */
+    [data-testid="stMultiSelect"] [data-baseweb="tag"] {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    [data-testid="stMultiSelect"] [data-baseweb="tag"] * {
+        color: #ffffff !important;
+    }
+    
+    .stMultiSelect [data-baseweb="tag"] {
+        background-color: #37003c !important;
+        color: #ffffff !important;
+    }
+    
+    .stMultiSelect [data-baseweb="tag"] * {
+        color: #ffffff !important;
+    }
+    
+    /* Force any dark background elements to have white text */
+    [style*="background-color: rgb(55, 0, 60)"] {
+        color: #ffffff !important;
+    }
+    
+    [style*="background-color: rgb(55, 0, 60)"] * {
+        color: #ffffff !important;
+    }
+    
+    [style*="background-color: #37003c"] {
+        color: #ffffff !important;
+    }
+    
+    [style*="background-color: #37003c"] * {
+        color: #ffffff !important;
+    }
+    
+    /* Tabs styling */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: #f0f2f6;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background-color: #ffffff;
+        color: #262730;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background-color: #37003c;
+        color: #ffffff;
+    }
+    
+    /* Dataframes */
+    .stDataFrame {
+        background-color: #ffffff;
+    }
+    
+    /* Metrics */
+    [data-testid="metric-container"] {
+        background-color: #f8f9fa;
+        border: 1px solid #e0e0e0;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    
+    /* Success/Info/Warning boxes */
+    .stSuccess {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    
+    .stInfo {
+        background-color: #d1ecf1;
+        color: #0c5460;
+        border: 1px solid #bee5eb;
+    }
+    
+    .stWarning {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
+    
+    /* Plotly charts background */
+    .js-plotly-plot {
+        background-color: #ffffff !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -98,12 +1283,38 @@ st.markdown("""
 @st.cache_data
 def load_player_data():
     """Load and cache player data"""
-    data_path = "data/processed/fpl_players_latest.csv"
+    # Get the project root directory (parent of web_app)
+    project_root = os.path.dirname(os.path.dirname(__file__))
+    data_path = os.path.join(project_root, "data", "processed", "fpl_players_latest.csv")
     
     if not os.path.exists(data_path):
         return None
     
     return pd.read_csv(data_path)
+
+@st.cache_data
+@st.cache_data
+def load_fixture_data():
+    """Load and cache fixture data"""
+    # Get the project root directory (parent of web_app)
+    project_root = os.path.dirname(os.path.dirname(__file__))
+    fixture_path = os.path.join(project_root, "data", "raw", "fpl_fixtures_latest.json")
+    bootstrap_path = os.path.join(project_root, "data", "raw", "fpl_data_latest.json")
+    
+    if not os.path.exists(fixture_path) or not os.path.exists(bootstrap_path):
+        return None, None
+    
+    try:
+        import json
+        with open(fixture_path, 'r') as f:
+            fixtures = json.load(f)
+        
+        with open(bootstrap_path, 'r') as f:
+            bootstrap = json.load(f)
+        
+        return fixtures, bootstrap
+    except:
+        return None, None
 
 @st.cache_resource
 def load_optimizer(budget):
@@ -194,6 +1405,98 @@ def create_cost_vs_points_scatter(selected_players):
     
     return fig
 
+def create_fdr_fixture_table(fixtures_data, bootstrap_data, upcoming_gameweeks=5):
+    """Create a comprehensive FDR fixture table"""
+    if not fixtures_data or not bootstrap_data:
+        return None
+    
+    # Create team mapping
+    teams = {team['id']: team for team in bootstrap_data['teams']}
+    
+    # Get current gameweek
+    current_gw = 1
+    current_time = pd.Timestamp.now()
+    
+    for fixture in fixtures_data:
+        if fixture['finished'] is False and fixture['kickoff_time']:
+            try:
+                kickoff = pd.to_datetime(fixture['kickoff_time'])
+                if kickoff > current_time:
+                    current_gw = fixture['event']
+                    break
+            except:
+                continue
+    
+    # Collect upcoming fixtures
+    fixture_list = []
+    
+    for fixture in fixtures_data:
+        if (fixture['event'] and 
+            fixture['event'] >= current_gw and 
+            fixture['event'] < current_gw + upcoming_gameweeks and
+            fixture['team_h'] and fixture['team_a']):
+            
+            home_team = teams.get(fixture['team_h'], {})
+            away_team = teams.get(fixture['team_a'], {})
+            
+            if home_team and away_team:
+                # Calculate FDR
+                def strength_to_fdr(strength):
+                    if strength >= 1400: return 5
+                    elif strength >= 1300: return 4
+                    elif strength >= 1200: return 3
+                    elif strength >= 1100: return 2
+                    else: return 1
+                
+                # Home team perspective
+                home_attack_fdr = strength_to_fdr(away_team.get('strength_defence_away', 1200))
+                home_defence_fdr = strength_to_fdr(away_team.get('strength_attack_away', 1200))
+                home_overall_fdr = strength_to_fdr(away_team.get('strength_overall_away', 1200))
+                
+                # Away team perspective  
+                away_attack_fdr = strength_to_fdr(home_team.get('strength_defence_home', 1200))
+                away_defence_fdr = strength_to_fdr(home_team.get('strength_attack_home', 1200))
+                away_overall_fdr = strength_to_fdr(home_team.get('strength_overall_home', 1200))
+                
+                # Add home team fixture
+                fixture_list.append({
+                    'gameweek': fixture['event'],
+                    'team': home_team.get('name', 'Unknown'),
+                    'opponent': away_team.get('name', 'Unknown'),
+                    'venue': 'Home',
+                    'attack_fdr': home_attack_fdr,
+                    'defence_fdr': home_defence_fdr,
+                    'overall_fdr': home_overall_fdr,
+                    'kickoff_time': fixture.get('kickoff_time', ''),
+                    'difficulty_color': get_fdr_color(home_overall_fdr)
+                })
+                
+                # Add away team fixture
+                fixture_list.append({
+                    'gameweek': fixture['event'],
+                    'team': away_team.get('name', 'Unknown'),
+                    'opponent': home_team.get('name', 'Unknown'),
+                    'venue': 'Away',
+                    'attack_fdr': away_attack_fdr,
+                    'defence_fdr': away_defence_fdr,
+                    'overall_fdr': away_overall_fdr,
+                    'kickoff_time': fixture.get('kickoff_time', ''),
+                    'difficulty_color': get_fdr_color(away_overall_fdr)
+                })
+    
+    return pd.DataFrame(fixture_list) if fixture_list else None
+
+def get_fdr_color(fdr):
+    """Get color for FDR rating"""
+    if fdr <= 2:
+        return "🟢"  # Green for easy
+    elif fdr == 3:
+        return "🟡"  # Yellow for average
+    elif fdr == 4:
+        return "🟠"  # Orange for difficult
+    else:
+        return "🔴"  # Red for very difficult
+
 def create_stats_page(players_df):
     """Create the Stats page with various player statistics"""
     
@@ -228,7 +1531,7 @@ def create_stats_page(players_df):
     filtered_df = filtered_df[filtered_df['position'] != 'Manager']
     
     # Create tabs for different stats
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["🥅 Goals & Assists", "⭐ Top Performers", "⏰ Playing Time", "💰 Value Analysis", "🏆 Elite Stats"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["🥅 Goals & Assists", "⭐ Top Performers", "⏰ Playing Time", "💰 Value Analysis", "🏆 Elite Stats", "🎯 FDR Analysis"])
     
     with tab1:
         st.markdown("### 🥅 Goals and Assists Leaders")
@@ -552,6 +1855,219 @@ def create_stats_page(players_df):
         )
         st.markdown('</div>', unsafe_allow_html=True)
     
+    with tab6:
+        st.markdown("### 🎯 Fixture Difficulty Rating (FDR) Analysis")
+        
+        # Check if FDR data is available
+        fdr_columns = ['fdr_attack', 'fdr_defence', 'fdr_overall']
+        has_fdr_data = all(col in filtered_df.columns for col in fdr_columns)
+        
+        if has_fdr_data:
+            st.info("📊 FDR Scale: 1 (Very Easy) → 5 (Very Difficult). Lower FDR = Easier fixtures.")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown('<div class="stats-card">', unsafe_allow_html=True)
+                st.markdown('<div class="stats-header">⚔️ Easiest Attack Fixtures (Best for Forwards/Midfielders)</div>', unsafe_allow_html=True)
+                
+                attack_fdr = filtered_df.groupby('team')[['fdr_attack', 'fdr_overall']].mean().round(2)
+                best_attack = attack_fdr.nsmallest(10, 'fdr_attack').reset_index()
+                best_attack.index = best_attack.index + 1
+                
+                st.dataframe(
+                    best_attack,
+                    column_config={
+                        "team": "Team",
+                        "fdr_attack": st.column_config.NumberColumn("Attack FDR", format="%.2f"),
+                        "fdr_overall": st.column_config.NumberColumn("Overall FDR", format="%.2f")
+                    },
+                    use_container_width=True,
+                    hide_index=False
+                )
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            with col2:
+                st.markdown('<div class="stats-card">', unsafe_allow_html=True)
+                st.markdown('<div class="stats-header">🛡️ Easiest Defence Fixtures (Best for Defenders/Goalkeepers)</div>', unsafe_allow_html=True)
+                
+                defence_fdr = filtered_df.groupby('team')[['fdr_defence', 'fdr_overall']].mean().round(2)
+                best_defence = defence_fdr.nsmallest(10, 'fdr_defence').reset_index()
+                best_defence.index = best_defence.index + 1
+                
+                st.dataframe(
+                    best_defence,
+                    column_config={
+                        "team": "Team",
+                        "fdr_defence": st.column_config.NumberColumn("Defence FDR", format="%.2f"),
+                        "fdr_overall": st.column_config.NumberColumn("Overall FDR", format="%.2f")
+                    },
+                    use_container_width=True,
+                    hide_index=False
+                )
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            # FDR-adjusted top performers
+            st.markdown('<div class="stats-card">', unsafe_allow_html=True)
+            st.markdown('<div class="stats-header">🌟 Best FDR Value Players (Form × Easy Fixtures)</div>', unsafe_allow_html=True)
+            
+            # Calculate FDR-adjusted form if available
+            if 'fdr_adjusted_form' in filtered_df.columns:
+                best_fdr_value = filtered_df.nlargest(15, 'fdr_adjusted_form')[
+                    ['name', 'position', 'team', 'form', 'fdr_overall', 'fdr_adjusted_form', 'cost', 'total_points']
+                ].reset_index(drop=True)
+                best_fdr_value.index = best_fdr_value.index + 1
+                
+                st.dataframe(
+                    best_fdr_value,
+                    column_config={
+                        "name": "Player",
+                        "position": "Position",
+                        "team": "Team",
+                        "form": st.column_config.NumberColumn("Form", format="%.1f"),
+                        "fdr_overall": st.column_config.NumberColumn("FDR", format="%.1f"),
+                        "fdr_adjusted_form": st.column_config.NumberColumn("FDR-Adj Form", format="%.1f"),
+                        "cost": st.column_config.NumberColumn("Cost", format="£%.1f"),
+                        "total_points": st.column_config.NumberColumn("Points", format="%d")
+                    },
+                    use_container_width=True,
+                    hide_index=False
+                )
+            else:
+                # Fallback calculation
+                filtered_df_copy = filtered_df.copy()
+                filtered_df_copy['fdr_value'] = filtered_df_copy['form'] * (6 - filtered_df_copy['fdr_overall']) / 5
+                best_fdr_value = filtered_df_copy.nlargest(15, 'fdr_value')[
+                    ['name', 'position', 'team', 'form', 'fdr_overall', 'fdr_value', 'cost', 'total_points']
+                ].reset_index(drop=True)
+                best_fdr_value.index = best_fdr_value.index + 1
+                
+                st.dataframe(
+                    best_fdr_value,
+                    column_config={
+                        "name": "Player",
+                        "position": "Position",
+                        "team": "Team",
+                        "form": st.column_config.NumberColumn("Form", format="%.1f"),
+                        "fdr_overall": st.column_config.NumberColumn("FDR", format="%.1f"),
+                        "fdr_value": st.column_config.NumberColumn("FDR Value", format="%.1f"),
+                        "cost": st.column_config.NumberColumn("Cost", format="£%.1f"),
+                        "total_points": st.column_config.NumberColumn("Points", format="%d")
+                    },
+                    use_container_width=True,
+                    hide_index=False
+                )
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Upcoming fixtures info if available
+            if 'next_opponent' in filtered_df.columns:
+                st.markdown('<div class="stats-card">', unsafe_allow_html=True)
+                st.markdown('<div class="stats-header">📅 Next Fixture Highlights</div>', unsafe_allow_html=True)
+                
+                # Show teams with easiest next fixtures
+                next_fixtures = filtered_df.groupby('team')[['next_opponent', 'next_fixture_fdr', 'next_fixture_home']].first()
+                next_fixtures = next_fixtures.nsmallest(10, 'next_fixture_fdr').reset_index()
+                next_fixtures['fixture'] = next_fixtures.apply(
+                    lambda x: f"vs {x['next_opponent']} ({'H' if x['next_fixture_home'] else 'A'})", axis=1
+                )
+                next_fixtures.index = next_fixtures.index + 1
+                
+                st.dataframe(
+                    next_fixtures[['team', 'fixture', 'next_fixture_fdr']],
+                    column_config={
+                        "team": "Team",
+                        "fixture": "Next Fixture",
+                        "next_fixture_fdr": st.column_config.NumberColumn("FDR", format="%.1f")
+                    },
+                    use_container_width=True,
+                    hide_index=False
+                )
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Add FDR Fixture Table
+            st.markdown('<div class="stats-card">', unsafe_allow_html=True)
+            st.markdown('<div class="stats-header">📅 Upcoming Fixtures FDR Table</div>', unsafe_allow_html=True)
+            
+            # Load fixture data
+            fixtures_data, bootstrap_data = load_fixture_data()
+            
+            if fixtures_data and bootstrap_data:
+                fixture_df = create_fdr_fixture_table(fixtures_data, bootstrap_data, upcoming_gameweeks=5)
+                
+                if fixture_df is not None and not fixture_df.empty:
+                    # Add filters for the fixture table
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        selected_teams = st.multiselect(
+                            "Filter by Teams",
+                            options=sorted(fixture_df['team'].unique()),
+                            default=[],
+                            key="fixture_team_filter"
+                        )
+                    
+                    with col2:
+                        selected_gameweeks = st.multiselect(
+                            "Filter by Gameweeks",
+                            options=sorted(fixture_df['gameweek'].unique()),
+                            default=sorted(fixture_df['gameweek'].unique()),
+                            key="fixture_gw_filter"
+                        )
+                    
+                    with col3:
+                        max_fdr = st.slider(
+                            "Max FDR to show",
+                            min_value=1,
+                            max_value=5,
+                            value=5,
+                            key="fixture_max_fdr"
+                        )
+                    
+                    # Filter fixture table
+                    filtered_fixtures = fixture_df.copy()
+                    
+                    if selected_teams:
+                        filtered_fixtures = filtered_fixtures[filtered_fixtures['team'].isin(selected_teams)]
+                    
+                    if selected_gameweeks:
+                        filtered_fixtures = filtered_fixtures[filtered_fixtures['gameweek'].isin(selected_gameweeks)]
+                    
+                    filtered_fixtures = filtered_fixtures[filtered_fixtures['overall_fdr'] <= max_fdr]
+                    
+                    # Sort by gameweek and team
+                    filtered_fixtures = filtered_fixtures.sort_values(['gameweek', 'team']).reset_index(drop=True)
+                    
+                    # Display fixture table
+                    st.dataframe(
+                        filtered_fixtures[['gameweek', 'team', 'opponent', 'venue', 'difficulty_color', 'attack_fdr', 'defence_fdr', 'overall_fdr']],
+                        column_config={
+                            "gameweek": st.column_config.NumberColumn("GW", format="%d"),
+                            "team": "Team",
+                            "opponent": "Opponent",
+                            "venue": "Venue",
+                            "difficulty_color": st.column_config.TextColumn("Difficulty", help="🟢 Easy, 🟡 Average, 🟠 Hard, 🔴 Very Hard"),
+                            "attack_fdr": st.column_config.NumberColumn("Attack FDR", format="%.0f"),
+                            "defence_fdr": st.column_config.NumberColumn("Defence FDR", format="%.0f"),
+                            "overall_fdr": st.column_config.NumberColumn("Overall FDR", format="%.0f")
+                        },
+                        use_container_width=True,
+                        hide_index=True,
+                        height=400
+                    )
+                    
+                    st.markdown("**Legend:** 🟢 Very Easy (1-2) | 🟡 Average (3) | 🟠 Difficult (4) | 🔴 Very Difficult (5)")
+                    
+                else:
+                    st.info("No upcoming fixtures found in the data.")
+            else:
+                st.info("💡 Fixture data not available. Run `python src/fetch_fpl_data.py` to fetch latest fixtures.")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+        
+        else:
+            st.warning("⚠️ FDR data not available in current dataset.")
+    
     # Summary stats at bottom
     st.divider()
     st.markdown("### 📈 Quick Statistics Summary")
@@ -689,6 +2205,68 @@ def create_footer():
         unsafe_allow_html=True
     )
 
+def filter_available_players(players_df):
+    """Silently filter out players who are not available for selection"""
+    if players_df is None:
+        return None
+    
+    # Remove players from relegated teams (teams that shouldn't be in Premier League)
+    # Teams relegated from Premier League 2024-25 season (for 2025-26 season starting)
+    # Southampton (20th), Leicester City (19th), Ipswich Town (18th) - all went down
+    relegated_teams = ['Southampton', 'Leicester', 'Ipswich']
+    relegated_mask = players_df['team'].str.contains('|'.join(relegated_teams), case=False, na=False)
+    relegated_players = players_df[relegated_mask]
+    if not relegated_players.empty:
+        print(f"[Background] Filtered out {len(relegated_players)} players from relegated teams: {relegated_players['team'].unique().tolist()}")
+    
+    players_df = players_df[~relegated_mask].copy()
+    
+    # Remove players with high transfer risk (they may have moved to other leagues/teams)
+    if 'transfer_risk' in players_df.columns:
+        high_risk_players = players_df[players_df['transfer_risk'] == 'high']
+        if not high_risk_players.empty:
+            # Log the filtering for internal tracking (not shown to user)
+            print(f"[Background] Filtered out {len(high_risk_players)} high-risk players")
+        
+        # Keep only low/medium risk players
+        players_df = players_df[players_df['transfer_risk'] != 'high'].copy()
+    
+    # Remove players with data validation warnings
+    if 'data_validation_warnings' in players_df.columns:
+        flagged_players = players_df[players_df['data_validation_warnings'] == 1]
+        if not flagged_players.empty:
+            print(f"[Background] Filtered out {len(flagged_players)} flagged players")
+        
+        # Keep only players without validation warnings
+        players_df = players_df[players_df['data_validation_warnings'] != 1].copy()
+    
+    # Remove players who are not selectable (if such data exists)
+    # This could include injured players, suspended players, etc.
+    if 'chance_of_playing_next_round' in players_df.columns:
+        # Filter out players with very low chance of playing (less than 25%)
+        unavailable_players = players_df[players_df['chance_of_playing_next_round'] < 25]
+        if not unavailable_players.empty:
+            print(f"[Background] Filtered out {len(unavailable_players)} likely unavailable players")
+        
+        players_df = players_df[players_df['chance_of_playing_next_round'] >= 25].copy()
+    
+    # Remove players with 0 minutes played and very low ownership (likely not active)
+    inactive_players = players_df[
+        (players_df['minutes'] == 0) & 
+        (players_df['selected_by_percent'] < 0.1) &
+        (players_df['total_points'] == 0)
+    ]
+    if not inactive_players.empty:
+        print(f"[Background] Filtered out {len(inactive_players)} inactive players")
+    
+    players_df = players_df[~(
+        (players_df['minutes'] == 0) & 
+        (players_df['selected_by_percent'] < 0.1) &
+        (players_df['total_points'] == 0)
+    )].copy()
+    
+    return players_df
+
 def main():
     """Main application function with page navigation"""
     
@@ -699,6 +2277,13 @@ def main():
     if players_df is None:
         st.error("❌ Player data not found!")
         st.info("Please run the following command first: `python src/fetch_fpl_data.py`")
+        st.stop()
+    
+    # Silently filter out unavailable players in the background
+    players_df = filter_available_players(players_df)
+    
+    if players_df is None or len(players_df) == 0:
+        st.error("❌ No available players found after filtering!")
         st.stop()
     
     # Page navigation in sidebar
@@ -729,7 +2314,7 @@ def create_optimizer_page(players_df):
     st.markdown('<h1 class="main-header">⚽ FPL Squad Optimizer</h1>', unsafe_allow_html=True)
     st.markdown("**Optimize your Fantasy Premier League squad using machine learning and mathematical optimization**")
     
-    st.success(f"✅ Loaded {len(players_df)} players")
+    st.success(f"✅ Loaded {len(players_df)} available players (filtered for quality and availability)")
     
     # Navigation button to Stats page
     col1, col2, col3, col4, col5 = st.columns(5)
@@ -1200,5 +2785,6 @@ def create_optimizer_page(players_df):
         unsafe_allow_html=True
     )
 
+# Run the main application
 if __name__ == "__main__":
     main()
