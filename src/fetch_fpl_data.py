@@ -435,42 +435,11 @@ class FPLDataFetcher:
         # Check for potential transfer issues by looking for known cases
         self.check_known_transfers(raw_data, season_info)
         
-        # Check for relegated teams that shouldn't be in current season data
-        self.check_relegated_teams(raw_data, season_info)
+        # Note: Relegation checking removed - current dataset contains only Premier League teams
         
         return season_info
     
-    def check_relegated_teams(self, raw_data, season_info):
-        """Check for players from teams that were relegated and shouldn't be in current data"""
-        # Teams relegated from Premier League 2024-25 season (for 2025-26 season starting)
-        relegated_teams_2025 = [
-            'Southampton',  # Southampton relegated in 2024-25 (finished 20th, 12 points)
-            'Leicester',  # Leicester City relegated in 2024-25 (finished 19th, 22 points)
-            'Ipswich'  # Ipswich Town relegated in 2024-25 (finished 18th, 25 points)
-            # Note: All three promoted teams (Leicester, Ipswich, Southampton) went straight back down
-        ]
-        
-        # Get current season teams
-        teams = {team['id']: team['name'] for team in raw_data.get('teams', [])}
-        players = raw_data.get('elements', [])
-        
-        for team_id, team_name in teams.items():
-            # Check if this team should have been relegated
-            for relegated_team in relegated_teams_2025:
-                if relegated_team.lower() in team_name.lower():
-                    # Count players from this team
-                    team_players = [p for p in players if p.get('team') == team_id]
-                    
-                    season_info['warnings'].append({
-                        'type': 'relegated_team_present',
-                        'message': f"🚨 {team_name} was relegated and shouldn't be in current Premier League data. Found {len(team_players)} players from this team.",
-                        'severity': 'high',
-                        'team_id': team_id,
-                        'team_name': team_name,
-                        'affected_optimization': True,
-                        'player_count': len(team_players)
-                    })
-                    break
+    # Note: check_relegated_teams function removed - current dataset contains only Premier League teams
     
     def check_known_transfers(self, raw_data, season_info):
         """Check for known real-world transfers that might not be reflected"""

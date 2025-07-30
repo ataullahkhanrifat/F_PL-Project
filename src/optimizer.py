@@ -60,6 +60,9 @@ class FPLOptimizer:
             'Forward': 1.0
         }
         
+        # Manual player selection
+        self.manually_selected_players = []  # List of player IDs to force include
+        
     def load_model(self):
         """Load the trained prediction model"""
         try:
@@ -270,6 +273,12 @@ class FPLOptimizer:
         bench_expensive = lpSum([player_vars[idx] - starting_vars[idx] for idx in very_expensive_players])
         prob += bench_expensive <= self.max_expensive_bench
         
+        # Constraint 10: Force include manually selected players
+        if hasattr(self, 'manually_selected_players') and self.manually_selected_players:
+            for player_index in self.manually_selected_players:
+                if player_index in players_df.index:
+                    prob += player_vars[player_index] == 1  # Force selection
+        
         # Solve the problem
         prob.solve(PULP_CBC_CMD(msg=0))  # Silent solver
         
@@ -422,6 +431,51 @@ class FPLOptimizer:
         players_df['final_points'] = players_df['weighted_points'] * players_df['popularity_factor']
         
         return players_df
+
+    def analyze_next_3_gameweeks(self, players_df):
+        """
+        Analyze the next 3 gameweeks and return position-specific player recommendations
+        Returns a dict with keys: position_recommendations (forwards, midfielders, defenders, goalkeepers)
+        """
+        # Use available FDR columns (fdr_attack, fdr_defence, fdr_overall)
+        for col in ["fdr_attack", "fdr_defence", "fdr_overall"]:
+            if col not in players_df.columns:
+                players_df[col] = 3.0
+
+        players_df = players_df.copy()
+        # Calculate a fixture score for each player (lower FDR = better fixtures)
+        players_df["fixture_score"] = (
+            (5 - players_df["fdr_attack"]) * (players_df["position"].isin(["Forward", "Midfielder"])) +
+            (5 - players_df["fdr_defence"]) * (players_df["position"] == "Defender") +
+            (5 - players_df["fdr_defence"]) * (players_df["position"] == "Goalkeeper")
+        )
+        # Combine with predicted points for a recommendation score
+        players_df["recommendation_score"] = players_df["predicted_points"] * 0.7 + players_df["fixture_score"] * 0.3
+
+        # Defensive: fillna
+        players_df["recommendation_score"] = players_df["recommendation_score"].fillna(0)
+
+        # Get top 5 for each position
+        recommendations = {}
+        for pos, key in zip([
+            "Forward", "Midfielder", "Defender", "Goalkeeper"],
+            ["forwards", "midfielders", "defenders", "goalkeepers"]):
+            pos_df = players_df[players_df["position"] == pos].sort_values(
+                "recommendation_score", ascending=False
+            ).head(5)
+            recommendations[key] = [
+                {
+                    "name": row["name"],
+                    "team": row["team"],
+                    "cost": row["cost"],
+                    "form": row["form"],
+                    "selected_by_percent": row.get("selected_by_percent", 0),
+                    "season_points": row.get("total_points", 0),
+                }
+                for _, row in pos_df.iterrows()
+            ]
+
+        return {"position_recommendations": recommendations}
 
 def main():
     """Main function to run the optimizer with enhanced features"""

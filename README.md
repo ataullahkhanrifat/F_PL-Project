@@ -13,42 +13,37 @@ A comprehensive Fantasy Premier League assistant that uses **machine learning pr
 - **Advanced Squad Optimization**: Linear programming finds optimal 15-player squads within budget
 - **Fixture Difficulty Rating (FDR)**: Analyzes opponent strength for better player selection
 - **Interactive Web Interface**: Beautiful Streamlit app with optimization controls and statistics
-- **Player Statistics Dashboard**: Comprehensive stats with top 10 leaderboards
+- **Next 3 Gameweeks Analysis**: Comprehensive fixture analysis with position-specific recommendations
+- **Manual Player Selection**: Force include/exclude specific players
 - **Team Position Limits**: Prevents over-concentration from single teams
 - **Expensive Player Strategy**: Smart handling of premium players (Salah, Haaland, etc.)
-
-## 📊 Screenshots
-
-### Squad Optimizer
-- Budget controls and advanced settings
-- FDR (Fixture Difficulty Rating) integration
-- Team-specific position limits
-- Real-time optimization results
-
-### Player Statistics
-- Goals & Assists leaderboards
-- Top performers analysis  
-- Playing time statistics
-- Value analysis and form players
+- **Advanced Filtering**: Team exclusions, FDR settings, budget controls
 
 ## 🏗️ Project Structure
 
 ```
 FPL-Squad-Optimizer/
 ├── data/
-│   ├── raw/           # Raw JSON data from FPL API
-│   └── processed/     # Cleaned CSV data  
+│   ├── raw/                    # Raw JSON data from FPL API
+│   │   ├── fpl_data_latest.json
+│   │   └── fpl_fixtures_latest.json
+│   └── processed/              # Cleaned CSV data
+│       └── fpl_players_latest.csv
 ├── src/
-│   ├── fetch_fpl_data.py    # Data fetching with FDR calculations
-│   └── optimizer.py         # Squad optimization engine
-├── models/            # Trained ML models
-├── notebooks/         # Jupyter notebooks for analysis
-│   └── model_training.ipynb
+│   ├── fetch_fpl_data.py      # Data fetching with FDR calculations
+│   └── optimizer.py           # Squad optimization engine
+├── models/                     # Trained ML models (*.pkl files)
+├── notebooks/                  # Jupyter notebooks for analysis
+│   └── model_training.ipynb   # Model training and evaluation
 ├── web_app/
-│   ├── app.py        # Streamlit web application
-│   └── assets/       # Images and documentation
-├── requirements.txt   # Python dependencies
-└── README.md         # This file
+│   ├── app.py                 # Main Streamlit web application
+│   └── assets/                # Images and documentation
+├── tests/                     # Test files
+│   └── test_app.py           # Application tests
+├── requirements.txt           # Production dependencies
+├── requirements-dev.txt       # Development dependencies
+├── run.sh                     # Quick start script
+└── README.md                  # Project documentation
 ```
 
 ## 🚀 Quick Start

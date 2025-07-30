@@ -1,0 +1,64 @@
+# pyproject.toml - Modern Python project configuration
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fpl-squad-optimizer"
+version = "2.0.0"
+description = "A comprehensive Fantasy Premier League assistant using machine learning and mathematical optimization"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Md Ataullah Khan Rifat", email = "your.ataullahkhan.rifat@gmail.com"},
+]
+keywords = ["fantasy", "premier-league", "football", "optimization", "machine-learning"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Games/Entertainment",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dynamic = ["dependencies"]
+
+[project.optional-dependencies]
+dev = [
+    "jupyter>=1.0.0",
+    "pytest>=7.4.4",
+    "black>=23.12.1",
+    "flake8>=7.0.0",
+    "mypy>=1.8.0",
+]
+
+[project.scripts]
+fpl-fetch-data = "src.fetch_fpl_data:main"
+fpl-optimize = "src.optimizer:main"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

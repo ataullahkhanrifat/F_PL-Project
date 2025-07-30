@@ -5,19 +5,38 @@
 echo "🏆 Fantasy Premier League Squad Optimizer"
 echo "=========================================="
 
+# Function to check if command exists
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# Check Python installation
+if ! command_exists python3; then
+    echo "❌ Python 3 is required but not installed."
+    exit 1
+fi
+
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then
-    echo "❌ Virtual environment not found. Please run setup first."
-    echo "Run: python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt"
-    exit 1
+    echo "🔧 Creating virtual environment..."
+    python3 -m venv venv
+    if [ $? -ne 0 ]; then
+        echo "❌ Failed to create virtual environment"
+        exit 1
+    fi
 fi
 
 # Activate virtual environment
 echo "🔧 Activating virtual environment..."
 source venv/bin/activate
 
-# Check if data exists
-if [ ! -f "data/processed/fpl_players_latest.csv" ]; then
+# Install/update dependencies
+echo "📦 Installing dependencies..."
+pip install -q --upgrade pip
+pip install -q -r requirements.txt
+
+# Check if data exists or is outdated
+if [ ! -f "data/processed/fpl_players_latest.csv" ] || [ ! -f "data/raw/fpl_data_latest.json" ]; then
     echo "📊 Fetching latest FPL data..."
     python3 src/fetch_fpl_data.py
     if [ $? -ne 0 ]; then
