@@ -6,20 +6,23 @@ echo "🏆 Fantasy Premier League Squad Optimizer"
 echo "=========================================="
 
 # Function to check if command exists
+
+# Function to check if command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Check Python installation
-if ! command_exists python3; then
-    echo "❌ Python 3 is required but not installed."
+
+# Check Python installation (use 'python' for Git Bash)
+if ! command_exists python; then
+    echo "❌ Python is required but not installed."
     exit 1
 fi
 
 # Check if virtual environment exists
 if [ ! -d "venv" ]; then
     echo "🔧 Creating virtual environment..."
-    python3 -m venv venv
+    python -m venv venv
     if [ $? -ne 0 ]; then
         echo "❌ Failed to create virtual environment"
         exit 1
@@ -28,7 +31,7 @@ fi
 
 # Activate virtual environment
 echo "🔧 Activating virtual environment..."
-source venv/bin/activate
+source venv/Scripts/activate
 
 # Install/update dependencies
 echo "📦 Installing dependencies..."
@@ -38,7 +41,7 @@ pip install -q -r requirements.txt
 # Check if data exists or is outdated
 if [ ! -f "data/processed/fpl_players_latest.csv" ] || [ ! -f "data/raw/fpl_data_latest.json" ]; then
     echo "📊 Fetching latest FPL data..."
-    python3 src/fetch_fpl_data.py
+    python src/fetch_fpl_data.py
     if [ $? -ne 0 ]; then
         echo "❌ Failed to fetch data"
         exit 1
@@ -61,7 +64,7 @@ read -p "Enter your choice (1-5): " choice
 case $choice in
     1)
         echo "📊 Fetching fresh FPL data..."
-        python3 src/fetch_fpl_data.py
+        python src/fetch_fpl_data.py
         ;;
     2)
         echo "🧠 Opening Jupyter notebook for model training..."
@@ -69,7 +72,7 @@ case $choice in
         ;;
     3)
         echo "⚙️ Running squad optimizer..."
-        python3 src/optimizer.py
+        python src/optimizer.py
         ;;
     4)
         echo "🌐 Launching web application..."
@@ -80,10 +83,10 @@ case $choice in
         echo "📝 Quick Demo:"
         echo "==============="
         echo "1. Fetching sample data..."
-        python3 src/fetch_fpl_data.py
+        python src/fetch_fpl_data.py
         echo ""
         echo "2. Running optimizer with £100m budget..."
-        python3 src/optimizer.py
+        python src/optimizer.py
         echo ""
         echo "3. Demo complete! Run option 4 to see the web interface."
         ;;
