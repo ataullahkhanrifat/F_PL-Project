@@ -40,25 +40,22 @@ st.set_page_config(
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 'optimizer'
 
-# Custom CSS for light theme and hide deploy button
+# Custom CSS for light theme, hide deploy button, and add floating sidebar toggle button
 st.markdown("""
 <style>
     .stApp {
         background-color: #ffffff !important;
         color: #262730 !important;
     }
-    
     .main .block-container {
         background-color: #ffffff !important;
         color: #262730 !important;
         padding-top: 2rem;
     }
-    
     section[data-testid="stSidebar"] {
         background-color: #f0f2f6 !important;
         color: #262730 !important;
     }
-    
     .main-header {
         font-size: 3rem;
         color: #37003c !important;
@@ -66,7 +63,6 @@ st.markdown("""
         margin-bottom: 2rem;
         font-weight: bold;
     }
-    
     .stButton > button {
         background-color: #37003c !important;
         color: #ffffff !important;
@@ -74,42 +70,77 @@ st.markdown("""
         border-radius: 0.5rem !important;
         font-weight: 600 !important;
     }
-    
     .stButton > button:hover {
         background-color: #5a0066 !important;
         color: #ffffff !important;
         border-color: #5a0066 !important;
     }
-    
     section[data-testid="stSidebar"] .stButton > button {
         width: 100% !important;
         margin-bottom: 0.5rem !important;
     }
-    
     /* Hide Streamlit deploy button */
     .stDeployButton {
         display: none !important;
     }
-    
-    /* Alternative selectors for deploy button */
     button[data-testid="stDecoratedHeader"] {
         display: none !important;
     }
-    
     .stActionButton {
         display: none !important;
     }
-    
-    /* Hide hamburger menu and deploy options */
-    .stAppHeader {
-        display: none !important;
+        /* Hide hamburger menu and deploy options, but keep sidebar toggle visible */
+        /* .stAppHeader {
+            display: none !important;
+        }
+        header[data-testid="stHeader"] {
+            display: none !important;
+        } */
+    /* Floating sidebar toggle button */
+    .sidebar-toggle-btn {
+        position: fixed;
+        top: 20px;
+        left: 10px;
+        z-index: 9999;
+        background: #37003c;
+        color: #fff;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        font-size: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
     }
-    
-    header[data-testid="stHeader"] {
-        display: none !important;
+    .sidebar-toggle-btn:hover {
+        background: #5a0066;
     }
 </style>
 """, unsafe_allow_html=True)
+
+# Add a floating sidebar toggle button (always visible)
+toggle_btn_html = '''
+<button class="sidebar-toggle-btn" onclick="window.dispatchEvent(new Event('toggle-sidebar'))" title="Show Sidebar">≡</button>
+<script>
+// Listen for the custom event and simulate sidebar open
+window.addEventListener('toggle-sidebar', function() {
+    // Find the sidebar toggle element (the '<<' button)
+    let sidebarToggle = document.querySelector('button[aria-label="Expand sidebar"]');
+    if (!sidebarToggle) {
+        // Try to find the collapsed sidebar icon
+        sidebarToggle = document.querySelector('button[title="Open navigation menu"]');
+    }
+    if (sidebarToggle) {
+        sidebarToggle.click();
+    }
+});
+</script>
+'''
+st.markdown(toggle_btn_html, unsafe_allow_html=True)
 
 @st.cache_data
 def load_player_data():
@@ -165,9 +196,20 @@ def create_fixtures_page(players_df):
     
     st.divider()
     
+
     # Initialize optimizer for fixture analysis
     optimizer = FPLOptimizer()
-    
+
+    # Ensure predicted_points are available
+    try:
+        optimizer.load_model()
+        if 'predicted_points' not in players_df.columns:
+            players_df = optimizer.predict_points(players_df)
+    except Exception as e:
+        st.error(f"❌ Error loading model or predicting points: {str(e)}")
+        return
+
+
     with st.spinner("🔍 Analyzing upcoming fixtures and player recommendations..."):
         try:
             fixture_analysis = optimizer.analyze_next_3_gameweeks(players_df)
@@ -175,10 +217,78 @@ def create_fixtures_page(players_df):
             st.error(f"❌ Error analyzing fixtures: {str(e)}")
             st.info("💡 This might be due to missing fixture data. Please try refreshing the player data.")
             return
-    
+
     if not fixture_analysis:
         st.warning("⚠️ No fixture analysis data available")
         return
+
+    # --- Custom Filtering: Only top 12 teams, max 3 players per team, max 1 GK per team ---
+    # Get top 12 teams by total predicted points (or use a relevant metric)
+    team_points = players_df.groupby('team')['predicted_points'].sum().sort_values(ascending=False)
+    top_teams = set(team_points.head(12).index)
+
+    def filter_players_per_category(all_position_players, gk_next_gw_starters=None):
+        # all_position_players: dict of {position: [players]}
+        # Returns: dict of {position: [filtered_players]}
+        team_total_counts = {}
+        team_gk_counts = {}
+        filtered = {pos: [] for pos in all_position_players}
+        for pos, players in all_position_players.items():
+            # Sort by predicted_points descending, prefer high minutes (likely starters)
+            sorted_players = sorted(
+                [p for p in players if p.get('minutes', 0) > 0],
+                key=lambda x: (x.get('predicted_points', 0), x.get('minutes', 0)),
+                reverse=True
+            )
+            count = 0
+            for player in sorted_players:
+                team = player.get('team')
+                if team not in top_teams:
+                    continue
+                if team not in team_total_counts:
+                    team_total_counts[team] = 0
+                # For goalkeepers, only allow one per team and must be likely to play next GW
+                if pos == 'goalkeepers':
+                    if gk_next_gw_starters is not None and player['name'] not in gk_next_gw_starters:
+                        continue
+                    if team not in team_gk_counts:
+                        team_gk_counts[team] = 0
+                    if team_gk_counts[team] >= 1:
+                        continue
+                    if team_total_counts[team] >= 3:
+                        continue
+                    team_gk_counts[team] += 1
+                else:
+                    if team_total_counts[team] >= 3:
+                        continue
+                filtered[pos].append(player)
+                team_total_counts[team] += 1
+                count += 1
+                if count == 3:
+                    break
+        # For goalkeepers, only keep up to 3 in total
+        if 'goalkeepers' in filtered:
+            filtered['goalkeepers'] = filtered['goalkeepers'][:3]
+        return filtered
+
+    # For goalkeepers: get those likely to start next GW (using 'minutes' or similar logic)
+    gk_next_gw_starters = set()
+    if 'goalkeepers' in fixture_analysis.get('position_recommendations', {}):
+        for player in fixture_analysis['position_recommendations']['goalkeepers']:
+            # Heuristic: played last GW or has high minutes
+            if player.get('minutes', 0) > 0:
+                gk_next_gw_starters.add(player['name'])
+
+    # Prepare all position players
+    all_position_players = {}
+    for pos in ['forwards', 'defenders', 'midfielders', 'goalkeepers']:
+        if pos in fixture_analysis.get('position_recommendations', {}):
+            all_position_players[pos] = fixture_analysis['position_recommendations'][pos]
+        else:
+            all_position_players[pos] = []
+
+    filtered_players = filter_players_per_category(all_position_players, gk_next_gw_starters=gk_next_gw_starters)
+
     
     # Create tabs for different analyses
     tab1, tab2, tab3, tab4 = st.tabs([
@@ -194,12 +304,15 @@ def create_fixtures_page(players_df):
         
         col1, col2 = st.columns(2)
         
+
+
+
         # Forwards
         with col1:
             st.markdown("### ⚽ **FORWARDS** (Best attacking fixtures)")
-            if 'forwards' in fixture_analysis.get('position_recommendations', {}):
-                forwards = fixture_analysis['position_recommendations']['forwards']
-                for i, player in enumerate(forwards[:3], 1):
+            forwards = filtered_players['forwards']
+            if forwards:
+                for i, player in enumerate(forwards, 1):
                     st.markdown(f"""
                     <div style='background: linear-gradient(90deg, #37003c, #5a0066); color: white; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;'>
                         <h4 style='margin: 0; color: white;'>{i}. {player['name']}</h4>
@@ -209,12 +322,12 @@ def create_fixtures_page(players_df):
                     """, unsafe_allow_html=True)
             else:
                 st.info("No forward recommendations available")
-        
+
         with col2:
             st.markdown("### 🛡️ **DEFENDERS** (Best defensive fixtures)")
-            if 'defenders' in fixture_analysis.get('position_recommendations', {}):
-                defenders = fixture_analysis['position_recommendations']['defenders']
-                for i, player in enumerate(defenders[:3], 1):
+            defenders = filtered_players['defenders']
+            if defenders:
+                for i, player in enumerate(defenders, 1):
                     st.markdown(f"""
                     <div style='background: linear-gradient(90deg, #00ff87, #04f5ff); color: #37003c; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;'>
                         <h4 style='margin: 0; color: #37003c;'>{i}. {player['name']}</h4>
@@ -224,12 +337,12 @@ def create_fixtures_page(players_df):
                     """, unsafe_allow_html=True)
             else:
                 st.info("No defender recommendations available")
-        
+
         # Midfielders
         st.markdown("### 🎨 **MIDFIELDERS** (Best attacking fixtures)")
-        if 'midfielders' in fixture_analysis.get('position_recommendations', {}):
-            midfielders = fixture_analysis['position_recommendations']['midfielders']
-            for i, player in enumerate(midfielders[:3], 1):
+        midfielders = filtered_players['midfielders']
+        if midfielders:
+            for i, player in enumerate(midfielders, 1):
                 st.markdown(f"""
                 <div style='background: linear-gradient(90deg, #e90052, #ff6b9d); color: white; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;'>
                     <h4 style='margin: 0; color: white;'>{i}. {player['name']}</h4>
@@ -239,12 +352,12 @@ def create_fixtures_page(players_df):
                 """, unsafe_allow_html=True)
         else:
             st.info("No midfielder recommendations available")
-        
+
         # Goalkeepers  
         st.markdown("### 🥅 **GOALKEEPERS** (Best clean sheet chances)")
-        if 'goalkeepers' in fixture_analysis.get('position_recommendations', {}):
-            goalkeepers = fixture_analysis['position_recommendations']['goalkeepers']
-            for i, player in enumerate(goalkeepers[:3], 1):
+        goalkeepers = filtered_players['goalkeepers']
+        if goalkeepers:
+            for i, player in enumerate(goalkeepers, 1):
                 st.markdown(f"""
                 <div style='background: linear-gradient(90deg, #04f5ff, #00bcd4); color: white; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;'>
                     <h4 style='margin: 0; color: white;'>{i}. {player['name']}</h4>
