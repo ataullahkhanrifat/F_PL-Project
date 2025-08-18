@@ -5,6 +5,7 @@ A comprehensive Fantasy Premier League assistant that uses **machine learning pr
 ![Python](https://img.shields.io/badge/python-v3.8+-blue.svg)
 ![Streamlit](https://img.shields.io/badge/streamlit-latest-red.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Version](https://img.shields.io/badge/version-2.0.0-brightgreen.svg)
 
 ## 🚀 Features
 
@@ -23,22 +24,32 @@ A comprehensive Fantasy Premier League assistant that uses **machine learning pr
 - **Interactive Filtering**: Search by player name, team, or position
 - **Value Analysis**: Best value players, differential picks, budget options
 
-### 🔮 Next 3 Gameweeks Analysis
+### � Current Season Points Analysis
+- **Live Gameweek Data**: Real-time current and previous gameweek performance tracking
+- **Season Leaders**: Comprehensive leaderboards across all major statistical categories
+- **Form Analysis**: Player performance trends and hot/cold form identification
+- **Value Discovery**: Budget options, differential picks, and best value players
+- **Transfer Trends**: Most transferred in/out players with ownership analysis
+
+### �🔮 Next 3 Gameweeks Analysis
 - **Fixture Difficulty Rating (FDR)**: Analyzes opponent strength for better player selection
 - **Position-Specific Recommendations**: Tailored advice for GK, DEF, MID, FWD
 - **Team Performance Metrics**: Form analysis and upcoming fixture difficulty
 - **Strategic Insights**: Captain picks and transfer recommendations
 
 ### 🌐 Interactive Web Interface
-- **Beautiful Streamlit App**: Modern, responsive design with custom CSS
-- **Real-time Updates**: Live data fetching from FPL API
-- **Multi-page Navigation**: Seamless switching between optimizer, stats, and fixtures
-- **Visual Analytics**: Charts, graphs, and interactive tables
+- **Beautiful Streamlit App**: Modern, responsive design with custom CSS and FPL theme colors
+- **Real-time Updates**: Live data fetching from FPL API with 5-minute caching
+- **4-Page Navigation**: Squad Optimizer, Player Statistics, Next 3 Gameweeks, and Current Season Points
+- **Visual Analytics**: Charts, graphs, and interactive tables with plotly integration
+- **Data Validation**: Automatic quality checks and error handling
+- **Session State Management**: Persistent user selections and preferences
 
 ## 🏗️ Project Structure
 
 ```
 F_PL-Project/
+├── .venv/                           # Virtual environment (auto-created)
 ├── data/
 │   ├── raw/                          # Raw JSON data from FPL API
 │   │   ├── fpl_data_latest.json     # Player data and statistics
@@ -53,11 +64,12 @@ F_PL-Project/
 │   ├── FPL_Squad_Optimizer.py      # Squad optimization page with controls
 │   ├── FPL_Player_Statistics.py    # Comprehensive player statistics page
 │   ├── Next_3_Gameweeks.py         # Fixture analysis and recommendations
-│   └── utils.py                     # Shared utilities and styling functions
-├── venv/                            # Virtual environment (auto-created)
+│   ├── Current_Season_Points.py    # Live gameweek analysis and season tracking
+│   └── utils.py                     # Shared utilities and navigation functions
+├── .gitignore                       # Git ignore rules
 ├── requirements.txt                 # Production dependencies
-├── run.sh                          # Interactive setup and launch script
-├── pyproject.toml                  # Project configuration
+├── run.sh                          # Interactive setup and launch script (Windows compatible)
+├── pyproject.toml                  # Modern Python project configuration
 ├── LICENSE                         # MIT license
 └── README.md                       # This documentation
 ```
@@ -69,15 +81,20 @@ F_PL-Project/
 ./run.sh
 ```
 
-The script will guide you through:
+The enhanced script will guide you through:
 1. 📊 Fetch fresh FPL data
-2. 🧠 Train ML model (Jupyter) 
-3. ⚙️ Run optimizer (CLI)
-4. 🌐 Launch web app
-5. 📝 Show quick demo
+2. ⚙️ Run optimizer (CLI)
+3. 🌐 Launch web app
+4. 📝 Show quick demo
 
-**Direct web app launch:**
+**Note**: The script automatically detects and uses the correct Python executable path for Windows compatibility, including full virtual environment support.
+
+**Alternative direct commands:**
 ```bash
+# For Git Bash on Windows
+bash run.sh
+
+# Direct web app launch
 streamlit run web_app/app.py
 ```
 
@@ -91,9 +108,9 @@ streamlit run web_app/app.py
 
 2. **Create virtual environment:**
    ```bash
-   python -m venv venv
-   source venv/Scripts/activate  # On Windows Git Bash
-   # source venv/bin/activate    # On Linux/Mac
+   python -m venv .venv
+   source .venv/Scripts/activate  # On Windows Git Bash
+   # source .venv/bin/activate    # On Linux/Mac
    ```
 
 3. **Install dependencies:**
@@ -138,7 +155,15 @@ Comprehensive analysis across 6 main categories:
 - **Advanced Stats**: Influence, creativity, threat, transfers
 - **Team Analysis**: Performance by club with visualizations
 
-### 🔮 Fixture Analysis
+### � Current Season Analysis
+Live tracking and analysis across 5 comprehensive tabs:
+- **Current GW**: Top performers in the active gameweek with live scoring
+- **Previous GW**: Form analysis and high-performing players from recent games
+- **Season Leaders**: Overall leaderboards for points, goals, assists, and value
+- **Form Analysis**: Hot/cold form categories with transfer trends
+- **Value Players**: Budget options, differentials, and ownership analysis
+
+### �🔮 Fixture Analysis
 Strategic insights for upcoming gameweeks:
 - **FDR Ratings**: Attack and defense difficulty by position
 - **Team Form**: Recent performance trends
@@ -167,13 +192,20 @@ Strategic insights for upcoming gameweeks:
 - **3-Gameweek Outlook**: Strategic planning for upcoming fixtures
 
 ### 🌐 Web Application Features
-- **Multi-Page Navigation**: Seamless switching between optimizer, stats, and fixtures
+- **4-Page Navigation**: Squad Optimizer, Player Statistics, Next 3 Gameweeks, Current Season Points
 - **Responsive Design**: Works on desktop, tablet, and mobile devices
 - **Custom Styling**: Professional appearance with branded colors and fonts
+- **Real-time Data**: Live FPL API integration with intelligent caching
 - **Data Validation**: Automatic checks for data quality and availability
 - **Error Handling**: Graceful fallbacks when data is unavailable
 
 ## 📈 Technical Implementation
+
+### Modern Python Project Structure
+- **pyproject.toml**: Modern Python project configuration following PEP 518/621 standards
+- **Virtual Environment**: Uses `.venv` directory for better IDE integration
+- **Cross-Platform Compatibility**: Enhanced Windows support with proper path handling
+- **Version Management**: Semantic versioning (currently v2.0.0)
 
 ### Data Pipeline
 - **FPL API Integration**: Direct connection to `https://fantasy.premierleague.com/api/`
@@ -188,19 +220,23 @@ Strategic insights for upcoming gameweeks:
 - **Performance**: Sub-second optimization for most scenarios
 
 ### Web Framework
-- **Frontend**: Streamlit with custom CSS for professional styling
-- **Backend**: Python with pandas for data manipulation
+- **Frontend**: Streamlit with custom CSS using FPL theme colors (#37003c, #00ff87)
+- **Backend**: Python with pandas for data manipulation and real-time API integration
 - **Visualization**: Plotly for interactive charts and graphs
-- **State Management**: Session-based user preferences and selections
+- **Caching Strategy**: 5-minute TTL for live data with @st.cache_data decorators
+- **State Management**: Session-based user preferences and multi-page navigation
+- **Error Handling**: Comprehensive validation and graceful error recovery
+- **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
 
 ## 🎮 API Usage
 
 This project uses the official Fantasy Premier League API:
-- **Endpoint**: `https://fantasy.premierleague.com/api/bootstrap-static/`
+- **Primary Endpoint**: `https://fantasy.premierleague.com/api/bootstrap-static/`
 - **No authentication required** - Public API access
-- **Rate limiting respected** - Responsible data fetching
-- **Real-time data** - Live player statistics and prices
+- **Rate limiting respected** - Responsible data fetching with caching
+- **Real-time data** - Live player statistics, prices, and gameweek information
 - **Comprehensive data** - 800+ players with 40+ features each
+- **Live Updates**: Current gameweek scores, transfers, and form data
 
 ## 📊 Sample Output
 
@@ -246,6 +282,27 @@ FWD Wood (£6.2m)              - Newcastle
 5. Bukayo Saka (Arsenal)         - 9 assists
 ```
 
+### 📊 Current Season Points Sample:
+```
+🏆 GAMEWEEK 15 ANALYSIS:
+Current Status: In Progress | Average Score: 45 pts | Deadline: Dec 15, 2024
+
+🔥 TOP GAMEWEEK PERFORMERS:
+1. Mohamed Salah (Liverpool)     - 18 pts (2 goals, 1 assist, 3 bonus)
+2. Erling Haaland (Man City)     - 16 pts (2 goals, 2 bonus)
+3. Cole Palmer (Chelsea)         - 14 pts (1 goal, 2 assists, 1 bonus)
+
+📈 FORM ANALYSIS (Last 5 Games):
+🔥 Hot Form (5.0+ avg): 12 players including Salah (7.2), Haaland (6.8)
+📈 Good Form (3.0-4.9): 89 players in consistent scoring form
+❄️ Cold Form (0-2.9): 45 players struggling for points
+
+💎 BEST VALUE PLAYERS:
+1. Jhon Durán (Aston Villa)      - 15.2 value, £5.2m
+2. Morgan Gibbs-White (Forest)   - 12.8 value, £6.1m
+3. Chris Wood (Newcastle)        - 11.9 value, £6.2m
+```
+
 ### 🔮 Fixture Analysis Sample:
 ```
 📅 NEXT 3 GAMEWEEKS ANALYSIS:
@@ -279,8 +336,8 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
 ```bash
 git clone https://github.com/ataullahkhanrifat/F_PL-Project.git
 cd F_PL-Project
-python -m venv venv
-source venv/Scripts/activate  # Windows Git Bash
+python -m venv .venv
+source .venv/Scripts/activate  # Windows Git Bash
 pip install -r requirements.txt
 ```
 

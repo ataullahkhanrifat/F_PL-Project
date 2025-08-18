@@ -26,6 +26,7 @@ from utils import (
 from FPL_Squad_Optimizer import create_optimizer_page
 from FPL_Player_Statistics import create_stats_page
 from Next_3_Gameweeks import create_fixtures_page
+from Current_Season_Points import create_current_season_page
 
 def main():
     """Main application function with page navigation"""
@@ -77,6 +78,8 @@ def main():
             create_stats_page(players_df)
         elif current_page == 'fixtures':
             create_fixtures_page(players_df)
+        elif current_page == 'current_season':
+            create_current_season_page(players_df)
         else:  # Default to optimizer
             create_optimizer_page(players_df)
     except Exception as e:

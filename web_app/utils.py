@@ -296,6 +296,9 @@ def create_navigation_sidebar():
     if st.sidebar.button("🗓️ Next 3 Gameweeks", use_container_width=True):
         st.session_state.current_page = 'fixtures'
     
+    if st.sidebar.button("📈 Current Season Points", use_container_width=True):
+        st.session_state.current_page = 'current_season'
+    
     st.sidebar.divider()
 
 def display_error_message(error_msg, error_type="error"):

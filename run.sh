@@ -12,36 +12,35 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Set Python executable path
+PYTHON_EXE="D:/FPL_Project/F_PL-Project/.venv/Scripts/python.exe"
 
-# Check Python installation (use 'python' for Git Bash)
-if ! command_exists python; then
-    echo "❌ Python is required but not installed."
+# Check Python installation
+if [ ! -f "$PYTHON_EXE" ]; then
+    echo "❌ Python virtual environment not found at $PYTHON_EXE"
+    echo "Please ensure the virtual environment is set up correctly."
     exit 1
 fi
 
-# Check if virtual environment exists
-if [ ! -d "venv" ]; then
-    echo "🔧 Creating virtual environment..."
-    python -m venv venv
-    if [ $? -ne 0 ]; then
-        echo "❌ Failed to create virtual environment"
-        exit 1
-    fi
+# Check if virtual environment exists (.venv directory)
+if [ ! -d ".venv" ]; then
+    echo "❌ Virtual environment (.venv) not found."
+    echo "Please set up the virtual environment first."
+    exit 1
 fi
 
-# Activate virtual environment
-echo "🔧 Activating virtual environment..."
-source venv/Scripts/activate
+# Virtual environment is already activated through the Python path
+echo "✅ Using virtual environment at .venv"
 
 # Install/update dependencies
 echo "📦 Installing dependencies..."
-pip install -q --upgrade pip
-pip install -q -r requirements.txt
+"$PYTHON_EXE" -m pip install -q --upgrade pip
+"$PYTHON_EXE" -m pip install -q -r requirements.txt
 
 # Check if data exists or is outdated
 if [ ! -f "data/processed/fpl_players_latest.csv" ] || [ ! -f "data/raw/fpl_data_latest.json" ]; then
     echo "📊 Fetching latest FPL data..."
-    python src/fetch_fpl_data.py
+    "$PYTHON_EXE" src/fetch_fpl_data.py
     if [ $? -ne 0 ]; then
         echo "❌ Failed to fetch data"
         exit 1
@@ -64,29 +63,29 @@ read -p "Enter your choice (1-5): " choice
 case $choice in
     1)
         echo "📊 Fetching fresh FPL data..."
-        python src/fetch_fpl_data.py
+        "$PYTHON_EXE" src/fetch_fpl_data.py
         ;;
     2)
         echo "🧠 Opening Jupyter notebook for model training..."
-        jupyter notebook notebooks/model_training.ipynb
+        "$PYTHON_EXE" -m jupyter notebook notebooks/model_training.ipynb
         ;;
     3)
         echo "⚙️ Running squad optimizer..."
-        python src/optimizer.py
+        "$PYTHON_EXE" src/optimizer.py
         ;;
     4)
         echo "🌐 Launching web application..."
         echo "📱 Opening in browser: http://localhost:8501"
-        streamlit run web_app/app.py
+        "$PYTHON_EXE" -m streamlit run web_app/app.py
         ;;
     5)
         echo "📝 Quick Demo:"
         echo "==============="
         echo "1. Fetching sample data..."
-        python src/fetch_fpl_data.py
+        "$PYTHON_EXE" src/fetch_fpl_data.py
         echo ""
         echo "2. Running optimizer with £100m budget..."
-        python src/optimizer.py
+        "$PYTHON_EXE" src/optimizer.py
         echo ""
         echo "3. Demo complete! Run option 4 to see the web interface."
         ;;

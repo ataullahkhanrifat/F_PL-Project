@@ -443,14 +443,23 @@ class FPLDataFetcher:
     
     def check_known_transfers(self, raw_data, season_info):
         """Check for known real-world transfers that might not be reflected"""
-        # Known high-profile transfers for 2025 (as examples)
+        # Known high-profile transfers for 2025 - Players who have left the Premier League
         known_transfers = [
+            {
+                'player_name': 'Marcus Rashford',
+                'old_team': 'Man Utd',
+                'new_team': 'Barcelona',
+                'transfer_date': '2025-01-01',
+                'status': 'confirmed',
+                'league_change': True  # Left Premier League - should not be available
+            },
             {
                 'player_name': 'Trent Alexander-Arnold',
                 'old_team': 'Liverpool',
                 'new_team': 'Real Madrid',
                 'transfer_date': '2025-01-01',  # Example date
-                'status': 'confirmed'
+                'status': 'confirmed',
+                'league_change': True  # Left Premier League - should not be available
             },
             # Add more known transfers here as they happen
         ]
@@ -466,12 +475,19 @@ class FPLDataFetcher:
                     current_team = teams.get(player.get('team'), 'Unknown')
                     
                     if current_team == transfer['old_team']:
+                        transfer_message = f"🚨 {transfer['player_name']} has transferred from {transfer['old_team']} to {transfer['new_team']} but is still listed as {current_team} player."
+                        
+                        # Check if player left the Premier League
+                        if transfer.get('league_change', False):
+                            transfer_message += " ⚠️ This player should NOT be available for selection as they left the Premier League."
+                        
                         season_info['warnings'].append({
                             'type': 'transfer_not_updated',
-                            'message': f"🚨 {transfer['player_name']} may have transferred from {transfer['old_team']} to {transfer['new_team']} but is still listed as {current_team} player.",
-                            'severity': 'high',
+                            'message': transfer_message,
+                            'severity': 'critical' if transfer.get('league_change', False) else 'high',
                             'player_id': player.get('id'),
-                            'affected_optimization': True
+                            'affected_optimization': True,
+                            'league_change': transfer.get('league_change', False)
                         })
                     break
     
@@ -480,13 +496,18 @@ class FPLDataFetcher:
         # Add validation flags to dataframe
         df['data_validation_warnings'] = 0
         df['transfer_risk'] = 'low'
+        df['unavailable_player'] = False  # New flag for players who should not be selectable
         
         # Mark players with transfer warnings
         for warning in season_info['warnings']:
             if warning['type'] == 'transfer_not_updated' and 'player_id' in warning:
                 player_mask = df['id'] == warning['player_id']
                 df.loc[player_mask, 'data_validation_warnings'] = 1
-                df.loc[player_mask, 'transfer_risk'] = 'high'
+                df.loc[player_mask, 'transfer_risk'] = 'critical' if warning.get('league_change', False) else 'high'
+                
+                # Mark players who left the Premier League as unavailable
+                if warning.get('league_change', False):
+                    df.loc[player_mask, 'unavailable_player'] = True
             
             # Mark players from relegated teams
             elif warning['type'] == 'relegated_team_present' and 'team_id' in warning:

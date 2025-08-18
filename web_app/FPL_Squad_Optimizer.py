@@ -1,7 +1,44 @@
 """
 FPL Squad Optimizer Module
 
-Contains all logic and functions related to squad optimization.
+Contains all logi      budget = st.sid        va            help="Total budget for your 15-player squad"
+    )
+    
+    # Additional filters
+    st.sidebar.subheader("Advanced Settings")   # Additional filters
+    st.sidebar.subheader("Advanced Settings")
+    
+    # Initialize session state for manually selected players
+        step=0.5,
+        help="Total budget for your 15-player squad"
+    )
+    
+    # Additional filters
+    st.sidebar.subheader("Advanced Settings")
+    
+    # Initialize session state for manually selected players
+    if 'manually_selected_players' not in st.session_state:  # Additional filters
+    st.sidebar.subheader("Advanced Settings")er(
+        "Squad Budget (£m)",
+        min_value=80.0,
+        max_value=120.0,
+        value=100.0,
+        step=0.5,
+        help="Total budget for your 15-player squad"
+    )
+    
+    # Additional filters
+    st.sidebar.subheader("Advanced Settings")
+    
+    # Initialize session state for manually selected playerstal budget for your 15-player squad"
+    )
+    
+    # Additional filters
+    st.sidebar.subheader("Advanced Settings")Total budget for your 15-player squad"
+    )
+    
+    # Additional filters
+    st.sidebar.subheader("Advanced Settings")tions related to squad optimization.
 """
 
 import streamlit as st
@@ -52,6 +89,7 @@ def create_optimizer_page(players_df):
         step=0.5,
         help="Total budget for your 15-player squad"
     )
+    
     
     # Additional filters
     st.sidebar.subheader("Advanced Settings")
