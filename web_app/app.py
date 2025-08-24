@@ -17,6 +17,8 @@ from utils import (
     apply_custom_css,
     create_navigation_sidebar,
     load_player_data,
+    fetch_fresh_player_data,
+    get_data_freshness_info,
     filter_available_players,
     create_footer,
     display_error_message,
@@ -39,6 +41,26 @@ def main():
     
     # Apply custom CSS
     apply_custom_css()
+    
+    # Auto-refresh for real-time timestamp updates (smart refresh to avoid button conflicts)
+    import time
+    if 'last_auto_refresh' not in st.session_state:
+        st.session_state.last_auto_refresh = time.time()
+    
+    if 'last_user_interaction' not in st.session_state:
+        st.session_state.last_user_interaction = time.time()
+    
+    # Only auto-refresh if no recent user interaction (prevents double-click issues)
+    current_time = time.time()
+    time_since_refresh = current_time - st.session_state.last_auto_refresh
+    time_since_interaction = current_time - st.session_state.last_user_interaction
+    
+    # Auto-refresh only if:
+    # 1. 15 seconds have passed since last refresh AND
+    # 2. At least 3 seconds have passed since last user interaction
+    if time_since_refresh > 15 and time_since_interaction > 3:
+        st.session_state.last_auto_refresh = current_time
+        st.rerun()
     
     # Load and validate data
     with st.spinner("Loading player data..."):

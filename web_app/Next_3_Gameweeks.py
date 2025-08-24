@@ -10,6 +10,7 @@ import numpy as np
 import plotly.express as px
 import sys
 import os
+import time
 
 # Add src directory to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
@@ -29,25 +30,48 @@ def create_fixtures_page(players_df):
     with col3:
         if st.button("🚀 Back to Optimizer", key="goto_optimizer_from_fixtures"):
             st.session_state.current_page = 'optimizer'
+            st.session_state.last_user_interaction = time.time()  # Track user interaction
             st.rerun()
     
     st.divider()
     
-    # Initialize optimizer for fixture analysis
-    optimizer = FPLOptimizer()
-    
-    # Ensure predicted_points are available
-    try:
+    # Initialize optimizer for fixture analysis (with caching)
+    @st.cache_data(ttl=300)  # Cache for 5 minutes
+    def get_optimizer_predictions(players_data_hash):
+        """Cache expensive optimizer operations"""
+        optimizer = FPLOptimizer()
+        
+        # Load model once
         optimizer.load_model()
+        
+        # Predict points if needed
         if 'predicted_points' not in players_df.columns:
-            players_df = optimizer.predict_points(players_df)
+            players_df_with_predictions = optimizer.predict_points(players_df.copy())
+        else:
+            players_df_with_predictions = players_df.copy()
+        
+        return players_df_with_predictions, optimizer
+    
+    # Create hash of player data to detect changes
+    import hashlib
+    players_data_str = str(players_df.values.tobytes())
+    players_hash = hashlib.md5(players_data_str.encode()).hexdigest()
+    
+    # Get cached predictions and optimizer
+    try:
+        players_df, optimizer = get_optimizer_predictions(players_hash)
     except Exception as e:
         st.error(f"❌ Error loading model or predicting points: {str(e)}")
         return
     
+    @st.cache_data(ttl=300)  # Cache fixture analysis for 5 minutes
+    def get_fixture_analysis(players_hash, optimizer_state):
+        """Cache expensive fixture analysis"""
+        return optimizer.analyze_next_3_gameweeks(players_df)
+    
     with st.spinner("🔍 Analyzing upcoming fixtures and player recommendations..."):
         try:
-            fixture_analysis = optimizer.analyze_next_3_gameweeks(players_df)
+            fixture_analysis = get_fixture_analysis(players_hash, "cached")
         except Exception as e:
             st.error(f"❌ Error analyzing fixtures: {str(e)}")
             st.info("💡 This might be due to missing fixture data. Please try refreshing the player data.")
@@ -80,10 +104,191 @@ def create_fixtures_page(players_df):
     with tab4:
         _display_captain_picks(filtered_recommendations)
 
+# Global ML model cache to avoid reloading models for each player
+_ml_model_cache = {
+    'ensemble': None,
+    'loaded': False
+}
+
+def get_ml_ensemble():
+    """Get cached ML ensemble model (load once, use many times)"""
+    global _ml_model_cache
+    
+    if not _ml_model_cache['loaded']:
+        try:
+            import sys
+            import os
+            project_root = os.path.dirname(os.path.dirname(__file__))
+            sys.path.append(os.path.join(project_root, 'src'))
+            
+            from advanced_ml_models import EnsemblePredictor
+            
+            # Load models once and cache
+            ensemble = EnsemblePredictor()
+            ensemble.load_models()  # Load Markov, age, news models
+            
+            _ml_model_cache['ensemble'] = ensemble
+            _ml_model_cache['loaded'] = True
+            
+            return ensemble
+            
+        except Exception as e:
+            # Cache the failure to avoid repeated attempts
+            _ml_model_cache['loaded'] = True
+            _ml_model_cache['ensemble'] = None
+            return None
+    
+    return _ml_model_cache['ensemble']
+
+def calculate_next_3gw_potential(player, team, fixture_analysis):
+    """
+    Calculate a player's potential points for the next 3 gameweeks using advanced ML models:
+    - Advanced ML ensemble predictions (Markov Chain + Age/Injury + News Sentiment)
+    - Opponent defensive strength analysis
+    - Home/away advantage multipliers
+    - Player ICT involvement and form trajectory
+    """
+    # Start with advanced ML prediction if available
+    base_prediction = player.get('predicted_points', 0)
+    
+    # Try to use cached ML models for better base prediction
+    ensemble = get_ml_ensemble()
+    if ensemble is not None:
+        try:
+            import pandas as pd
+            
+            # Create single-player DataFrame for prediction
+            player_df = pd.DataFrame([{
+                'form': player.get('form', 0),
+                'cost': player.get('cost', 5.0),
+                'minutes': player.get('minutes', 0),
+                'total_points': player.get('total_points', 0),
+                'influence': player.get('influence', 0),
+                'creativity': player.get('creativity', 0),
+                'threat': player.get('threat', 0),
+                'ict_index': player.get('ict_index', 0),
+                'selected_by_percent': player.get('selected_by_percent', 0),
+                'position': player.get('position_key', 'midfielder'),
+                'age': player.get('age', 25),  # Default age
+                'team': team
+            }])
+            
+            # Get advanced ML prediction (models already loaded)
+            advanced_predictions = ensemble.predict_with_ensemble(player_df)
+            if len(advanced_predictions) > 0:
+                base_prediction = advanced_predictions[0]
+                
+        except Exception:
+            # Fall back to basic prediction if advanced models fail
+            base_prediction = player.get('predicted_points', player.get('form', 0) * 2.5)
+    else:
+        # Fall back to basic prediction if advanced models not available
+        base_prediction = player.get('predicted_points', player.get('form', 0) * 2.5)
+    
+    # Get team's fixture difficulty from analysis
+    team_fixtures = []
+    if 'team_analysis' in fixture_analysis:
+        for team_data in fixture_analysis['team_analysis']:
+            if team_data.get('team') == team:
+                team_fixtures = team_data.get('upcoming_fixtures', [])
+                break
+    
+    if not team_fixtures:
+        return base_prediction
+    
+    # Analyze each of the next 3 fixtures with position-specific logic
+    fixture_multiplier = 1.0
+    for i, fixture in enumerate(team_fixtures[:3]):
+        # Weight recent fixtures more heavily
+        weight = 1.0 - (i * 0.1)  # GW1: 1.0, GW2: 0.9, GW3: 0.8
+        
+        # Position-specific opponent analysis
+        if player['position_key'] in ['forwards', 'midfielders']:
+            # Attacking players benefit from weak defenses
+            opponent_fdr = fixture.get('fdr_defence', 3)
+            ease_multiplier = (6 - opponent_fdr) / 3  # Scale: 1.0 (hard) to 1.67 (easy)
+        else:
+            # Defensive players benefit from weak attacks (clean sheet potential)
+            opponent_fdr = fixture.get('fdr_attack', 3)
+            ease_multiplier = (6 - opponent_fdr) / 3
+        
+        # Home advantage (more significant for certain positions)
+        if player['position_key'] in ['defenders', 'goalkeepers']:
+            home_multiplier = 1.20 if fixture.get('is_home', False) else 0.90  # Higher impact for defense
+        else:
+            home_multiplier = 1.15 if fixture.get('is_home', False) else 0.95  # Standard impact for attack
+        
+        fixture_multiplier += (ease_multiplier * home_multiplier * weight)
+    
+    # Normalize by number of fixtures analyzed
+    fixture_multiplier = fixture_multiplier / 4  # 1 base + 3 fixtures
+    
+    # Apply advanced player-specific factors
+    
+    # ICT Index boost (higher ICT = more involved in play, better prediction reliability)
+    ict_boost = 1 + (player.get('ict_index', 0) / 1000)  # Max ~10% boost for high ICT
+    
+    # Form trajectory analysis (recent vs season performance)
+    season_avg = player.get('total_points', 0) / max(1, (player.get('minutes', 1) / 90))
+    current_form = player.get('form', 0)
+    form_trajectory = min(1.4, max(0.6, current_form / max(0.1, season_avg)))
+    
+    # Age factor (peak performance curves by position)
+    age = player.get('age', 25)
+    if player['position_key'] == 'goalkeepers':
+        # GK peak later, decline slower
+        age_factor = 1.0 if 28 <= age <= 32 else (0.95 if age < 28 or age > 32 else 0.85)
+    elif player['position_key'] == 'defenders':
+        # Defenders peak mid-career
+        age_factor = 1.0 if 25 <= age <= 30 else (0.95 if age < 25 or age > 30 else 0.85)
+    else:
+        # Attackers peak earlier
+        age_factor = 1.0 if 22 <= age <= 28 else (0.95 if age < 22 or age > 28 else 0.85)
+    
+    # Calculate final sophisticated prediction
+    next_3gw_prediction = (base_prediction * fixture_multiplier * ict_boost * 
+                          form_trajectory * age_factor)
+    
+    return round(next_3gw_prediction, 2)
+
+def calculate_fixture_difficulty_score(team, fixture_analysis):
+    """
+    Calculate fixture difficulty score for next 3 gameweeks (lower = easier)
+    """
+    if 'team_analysis' not in fixture_analysis:
+        return 3.0  # Neutral difficulty
+    
+    for team_data in fixture_analysis['team_analysis']:
+        if team_data.get('team') == team:
+            # Average FDR across next 3 fixtures
+            fixtures = team_data.get('upcoming_fixtures', [])[:3]
+            if not fixtures:
+                return 3.0
+            
+            total_difficulty = sum(f.get('fdr_overall', 3) for f in fixtures)
+            return round(total_difficulty / len(fixtures), 2)
+    
+    return 3.0  # Default neutral
+
+def calculate_manager_confidence(player):
+    """
+    Calculate manager confidence based on transfer trends and ownership changes
+    """
+    transfers_in = player.get('transfers_in_event', 0)
+    transfers_out = player.get('transfers_out_event', 0)
+    
+    # Net transfers as percentage of ownership
+    ownership = max(1, player.get('selected_by_percent', 1))
+    net_transfer_rate = (transfers_in - transfers_out) / (ownership * 1000)  # Normalize
+    
+    # Convert to confidence score (0.5 to 1.5 range)
+    confidence = 1.0 + (net_transfer_rate * 0.5)
+    return max(0.5, min(1.5, confidence))
+
 def apply_fpl_constraints(fixture_analysis, players_df):
     """
     Apply proper FPL rules and constraints to fixture recommendations
-    Focus on top 12 teams and highest point potential for next 3 GWs
+    Focus on all teams and highest point potential for next 3 GWs
     
     Args:
         fixture_analysis: Raw fixture analysis from optimizer
@@ -92,12 +297,6 @@ def apply_fpl_constraints(fixture_analysis, players_df):
     Returns:
         Dictionary with filtered recommendations following FPL rules
     """
-    # Define top 12 teams (based on Premier League strength)
-    TOP_TEAMS = {
-        'Man City', 'Arsenal', 'Liverpool', 'Chelsea', 'Man Utd', 'Newcastle',
-        'Spurs', 'Brighton', 'Aston Villa', 'Brentford', 'West Ham', 'Nott\'m Forest'
-    }
-    
     # Initialize filtered recommendations
     filtered_recommendations = {
         'position_recommendations': {
@@ -129,17 +328,15 @@ def apply_fpl_constraints(fixture_analysis, players_df):
         'Goalkeeper': 'goalkeepers'
     }
     
-    # Process all players from the dataframe
+    # Process all players from the dataframe (no team restrictions)
     for _, player_data in players_df.iterrows():
         player_position = position_mapping.get(player_data.get('position', ''), None)
         if not player_position:
             continue
             
-        # Only include players from top teams
+        # Include players from ALL teams
         player_team = player_data.get('team', '')
-        if player_team not in TOP_TEAMS:
-            continue
-            
+        
         # Create player record with all needed data
         player = {
             'name': player_data.get('name', ''),
@@ -151,11 +348,25 @@ def apply_fpl_constraints(fixture_analysis, players_df):
             'selected_by_percent': player_data.get('selected_by_percent', 0),
             'status': player_data.get('status', 'a'),
             'predicted_points': player_data.get('predicted_points', player_data.get('form', 0) * 2.5),
-            'position_key': player_position
+            'position_key': player_position,
+            'transfers_in': player_data.get('transfers_in', 0),
+            'transfers_out': player_data.get('transfers_out', 0),
+            'transfers_in_event': player_data.get('transfers_in_event', 0),
+            'transfers_out_event': player_data.get('transfers_out_event', 0),
+            'ict_index': player_data.get('ict_index', 0),
+            'influence': player_data.get('influence', 0),
+            'creativity': player_data.get('creativity', 0),
+            'threat': player_data.get('threat', 0)
         }
         
-        # Calculate fixture score (lower is better) - use form and predicted points as proxy
-        player['fixture_score'] = max(1, 5 - (player['form'] / 2) - (player['predicted_points'] / 10))
+        # Calculate advanced fixture-based prediction for next 3 gameweeks
+        player['next_3gw_prediction'] = calculate_next_3gw_potential(player, player_team, fixture_analysis)
+        
+        # Calculate fixture score (lower is better) - now based on actual fixture analysis
+        player['fixture_score'] = calculate_fixture_difficulty_score(player_team, fixture_analysis)
+        
+        # Calculate manager confidence (based on transfer trends)
+        player['manager_confidence'] = calculate_manager_confidence(player)
         
         all_players_by_position[player_position].append(player)
     
@@ -199,23 +410,24 @@ def apply_fpl_constraints(fixture_analysis, players_df):
         else:
             team_player_counts[team] = team_player_counts.get(team, 0) + 1
     
-    # Process each position to get exactly 3 players per position
+    # Process each position to get exactly 5 players per position
     for position_key in ['forwards', 'midfielders', 'defenders', 'goalkeepers']:
         position_players = all_players_by_position[position_key]
         
-        # Sort by highest point potential for next 3 GWs
+        # Sort by sophisticated ML predictions and advanced metrics
         position_players.sort(key=lambda x: (
-            -x.get('predicted_points', 0),  # Higher predicted points is better
-            -x.get('form', 0),  # Higher form is better
-            -x.get('total_points', 0),  # Higher total points is better
-            x.get('fixture_score', 5)  # Lower fixture difficulty is better
+            -x.get('next_3gw_prediction', x.get('predicted_points', 0)),  # Advanced ML prediction first
+            -x.get('manager_confidence', 1.0),  # Manager confidence from transfer trends
+            x.get('fixture_score', 5),  # Lower fixture difficulty is better
+            -x.get('ict_index', 0),  # Higher ICT involvement is better
+            -x.get('form', 0),  # Higher form is better as tiebreaker
         ))
         
         added_count = 0
         attempts = 0
         max_attempts = len(position_players)
         
-        while added_count < 3 and attempts < max_attempts:
+        while added_count < 5 and attempts < max_attempts:
             player = position_players[attempts]
             attempts += 1
             
@@ -223,11 +435,11 @@ def apply_fpl_constraints(fixture_analysis, players_df):
                 add_player(player, position_key)
                 added_count += 1
         
-        # If we couldn't get 3 players due to team constraints, relax constraints slightly
-        if added_count < 3:
-            # For remaining slots, allow any eligible player from top teams
+        # If we couldn't get 5 players due to team constraints, relax constraints slightly
+        if added_count < 5:
+            # For remaining slots, allow any eligible player from all teams
             for player in position_players:
-                if added_count >= 3:
+                if added_count >= 5:
                     break
                     
                 if is_player_eligible(player):
@@ -242,30 +454,56 @@ def apply_fpl_constraints(fixture_analysis, players_df):
     for position_players in filtered_recommendations['position_recommendations'].values():
         all_recommended.extend(position_players)
     
-    # Sort by captaincy potential (form + predicted points)
+    # Sort by captaincy potential using advanced ML predictions
     all_recommended.sort(key=lambda x: (
-        -x.get('predicted_points', 0),
-        -x.get('form', 0),
-        -x.get('total_points', 0)
+        -x.get('next_3gw_prediction', x.get('predicted_points', 0)),  # Advanced ML prediction
+        -x.get('manager_confidence', 1.0),  # Manager confidence
+        -x.get('ict_index', 0),  # ICT involvement
+        -x.get('form', 0)  # Form as final tiebreaker
     ))
     
-    # Take top 8 as captain picks
-    filtered_recommendations['captain_picks'] = all_recommended[:8]
+    # Take top 10 as captain picks (since we now have 20 total players - 5 per position)
+    filtered_recommendations['captain_picks'] = all_recommended[:10]
     
     return filtered_recommendations
 
 def _display_position_recommendations(filtered_recommendations):
     """Display position-specific recommendations with FPL constraints applied"""
     st.subheader("🎯 Position-Specific Recommendations (Next 3 GWs)")
-    st.markdown("📊 **Focus: Top 12 Teams Only | Max 3 per team | 1 GK per team | Highest expected points**")
+    st.markdown("🚀 **Updated Strategic Approach: 25% fixtures + 20% last 5 matches + 20% season performance**")
+    st.markdown("🤖 **Advanced ML System: Markov Chain + Age Analysis + News Sentiment + Fixture Intelligence**")
     
-    # Show which teams are considered "top teams"
-    with st.expander("🏆 Top Teams Considered (Click to expand)"):
+    # Show updated criteria
+    with st.expander("⚽ Advanced Selection Criteria (Click to expand)"):
         st.markdown("""
-        **Top 12 Teams:** Man City, Arsenal, Liverpool, Chelsea, Man Utd, Newcastle, 
-        Spurs, Brighton, Aston Villa, Brentford, West Ham, Nott'm Forest
+        **🤖 Advanced ML System:**
+        - ✅ **Markov Chain Form Analysis** - Predicts form transitions based on historical patterns
+        - ✅ **Age Performance Curves** - Position-specific peak performance analysis  
+        - ✅ **News Sentiment Analysis** - Incorporates injury/transfer/form news
+        - ✅ **Ensemble ML Models** - Random Forest + Gradient Boosting combination
         
-        *Only players from these teams are recommended for higher point potential.*
+        **🏟️ Enhanced Fixture Intelligence (25% weight):**
+        - ✅ **Position-Specific FDR** - Attackers vs weak defenses, defenders vs weak attacks
+        - ✅ **Strategic Fixture Scoring** - Future-focused over past performance
+        - ✅ **Team Popularity Modifiers** - Strong teams with good fixtures get boost
+        - ✅ **3-Gameweek Weighted Analysis** - More weight on nearer fixtures
+        
+        **📊 Updated Prediction Model:**
+        - 🎯 **Season Performance (20%)** - Overall consistency throughout the season
+        - ⚡ **Last 5 Matches (20%)** - Most recent performance and current momentum
+        - 🏟️ **Fixture Advantage (25%)** - Upcoming fixture difficulty analysis (highest weight)
+        - 📈 **Recent Form Last 10 (5%)** - Broader recent form context (minimal impact)
+        - 💎 **PPG Consistency (15%)** - Points per game reliability
+        - 💰 **Value Factor (10%)** - Cost efficiency consideration
+        - 🌟 **Top 5 Team Bonus (5%)** - Premium for big team players
+        
+        **📊 Player Analysis:**
+        - ✅ **ICT Involvement Index** - Player impact on team performance
+        - ✅ **Manager Confidence** - Transfer trend analysis  
+        - ✅ **Form Trajectory** - Recent vs season performance comparison
+        - ✅ **All 20 Premier League teams** considered for maximum options
+        
+        *Updated strategic predictions emphasizing recent momentum (Last 5: 20%) and upcoming fixtures (25%) over season-long performance.*
         """)
     
     col1, col2 = st.columns(2)
@@ -284,7 +522,8 @@ def _display_position_recommendations(filtered_recommendations):
                 <div style='background: linear-gradient(90deg, #37003c, #5a0066); color: white; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;'>
                     <h4 style='margin: 0; color: white;'>{i}. {player['name']} {form_indicator} {minutes_indicator}</h4>
                     <p style='margin: 0.2rem 0;'>£{player['cost']:.1f}m | Form: {player['form']:.1f} | Ownership: {player.get('selected_by_percent', 0):.1f}%</p>
-                    <p style='margin: 0.2rem 0; font-size: 0.9em;'>Team: {player['team']} | Minutes: {player.get('minutes', 0)} | Season: {player.get('total_points', 'N/A')}</p>
+                    <p style='margin: 0.2rem 0; font-size: 0.9em;'>🤖 <strong>ML Prediction:</strong> {player.get('next_3gw_prediction', 0):.1f} pts | ICT: {player.get('ict_index', 0):.0f}</p>
+                    <p style='margin: 0.2rem 0; font-size: 0.9em;'>Team: {player['team']} | Minutes: {player.get('minutes', 0)} | Confidence: {player.get('manager_confidence', 1.0):.2f}</p>
                 </div>
                 """, unsafe_allow_html=True)
         else:
@@ -303,28 +542,34 @@ def _display_position_recommendations(filtered_recommendations):
                 <div style='background: linear-gradient(90deg, #00ff87, #04f5ff); color: #37003c; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;'>
                     <h4 style='margin: 0; color: #37003c;'>{i}. {player['name']} {form_indicator} {minutes_indicator}</h4>
                     <p style='margin: 0.2rem 0;'>£{player['cost']:.1f}m | Form: {player['form']:.1f} | Ownership: {player.get('selected_by_percent', 0):.1f}%</p>
-                    <p style='margin: 0.2rem 0; font-size: 0.9em;'>Team: {player['team']} | Minutes: {player.get('minutes', 0)} | Season: {player.get('total_points', 'N/A')}</p>
+                    <p style='margin: 0.2rem 0; font-size: 0.9em;'>🤖 <strong>ML Prediction:</strong> {player.get('next_3gw_prediction', 0):.1f} pts | ICT: {player.get('ict_index', 0):.0f}</p>
+                    <p style='margin: 0.2rem 0; font-size: 0.9em;'>Team: {player['team']} | Minutes: {player.get('minutes', 0)} | Confidence: {player.get('manager_confidence', 1.0):.2f}</p>
                 </div>
                 """, unsafe_allow_html=True)
         else:
             st.info("No defender recommendations available")
     
-    # Midfielders
+    # Midfielders (now taking full width since we have 5 players)
     st.markdown("### 🎨 **MIDFIELDERS** (Best attacking fixtures)")
     midfielders = filtered_recommendations['position_recommendations']['midfielders']
     if midfielders:
+        # Create 2 columns for midfielders to display 5 players nicely
+        mid_col1, mid_col2 = st.columns(2)
         for i, player in enumerate(midfielders, 1):
             # Add eligibility indicators
             form_indicator = "🔥" if player.get('form', 0) > 3.0 else "📈" if player.get('form', 0) > 0 else "💤"
             minutes_indicator = "⭐" if player.get('minutes', 0) > 500 else "✅" if player.get('minutes', 0) > 100 else "⚠️"
             
-            st.markdown(f"""
-            <div style='background: linear-gradient(90deg, #e90052, #ff6b9d); color: white; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;'>
-                <h4 style='margin: 0; color: white;'>{i}. {player['name']} {form_indicator} {minutes_indicator}</h4>
-                <p style='margin: 0.2rem 0;'>£{player['cost']:.1f}m | Form: {player['form']:.1f} | Ownership: {player.get('selected_by_percent', 0):.1f}%</p>
-                <p style='margin: 0.2rem 0; font-size: 0.9em;'>Team: {player['team']} | Minutes: {player.get('minutes', 0)} | Season: {player.get('total_points', 'N/A')}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            # Alternate between columns
+            with mid_col1 if i % 2 == 1 else mid_col2:
+                st.markdown(f"""
+                <div style='background: linear-gradient(90deg, #e90052, #ff6b9d); color: white; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;'>
+                    <h4 style='margin: 0; color: white;'>{i}. {player['name']} {form_indicator} {minutes_indicator}</h4>
+                    <p style='margin: 0.2rem 0;'>£{player['cost']:.1f}m | Form: {player['form']:.1f} | Ownership: {player.get('selected_by_percent', 0):.1f}%</p>
+                    <p style='margin: 0.2rem 0; font-size: 0.9em;'>🤖 <strong>ML Prediction:</strong> {player.get('next_3gw_prediction', 0):.1f} pts | ICT: {player.get('ict_index', 0):.0f}</p>
+                    <p style='margin: 0.2rem 0; font-size: 0.9em;'>Team: {player['team']} | Minutes: {player.get('minutes', 0)} | Confidence: {player.get('manager_confidence', 1.0):.2f}</p>
+                </div>
+                """, unsafe_allow_html=True)
     else:
         st.info("No midfielder recommendations available")
     
@@ -332,18 +577,23 @@ def _display_position_recommendations(filtered_recommendations):
     st.markdown("### 🥅 **GOALKEEPERS** (Best clean sheet chances)")
     goalkeepers = filtered_recommendations['position_recommendations']['goalkeepers']
     if goalkeepers:
+        # Create 2 columns for goalkeepers to display 5 players nicely
+        gk_col1, gk_col2 = st.columns(2)
         for i, player in enumerate(goalkeepers, 1):
             # Add eligibility indicators for GKs
             form_indicator = "🔥" if player.get('form', 0) > 2.0 else "📈" if player.get('form', 0) > 0 else "💤"
             minutes_indicator = "⭐" if player.get('minutes', 0) > 1000 else "✅" if player.get('minutes', 0) > 500 else "⚠️"
             
-            st.markdown(f"""
-            <div style='background: linear-gradient(90deg, #1a237e, #283593); color: white; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;'>
-                <h4 style='margin: 0; color: white;'>{i}. {player['name']} {form_indicator} {minutes_indicator}</h4>
-                <p style='margin: 0.2rem 0;'>£{player['cost']:.1f}m | Form: {player['form']:.1f} | Ownership: {player.get('selected_by_percent', 0):.1f}%</p>
-                <p style='margin: 0.2rem 0; font-size: 0.9em;'>Team: {player['team']} | Minutes: {player.get('minutes', 0)} | Season: {player.get('total_points', 'N/A')}</p>
-            </div>
-            """, unsafe_allow_html=True)
+            # Alternate between columns
+            with gk_col1 if i % 2 == 1 else gk_col2:
+                st.markdown(f"""
+                <div style='background: linear-gradient(90deg, #1a237e, #283593); color: white; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem;'>
+                    <h4 style='margin: 0; color: white;'>{i}. {player['name']} {form_indicator} {minutes_indicator}</h4>
+                    <p style='margin: 0.2rem 0;'>£{player['cost']:.1f}m | Form: {player['form']:.1f} | Ownership: {player.get('selected_by_percent', 0):.1f}%</p>
+                    <p style='margin: 0.2rem 0; font-size: 0.9em;'>🤖 <strong>ML Prediction:</strong> {player.get('next_3gw_prediction', 0):.1f} pts | ICT: {player.get('ict_index', 0):.0f}</p>
+                    <p style='margin: 0.2rem 0; font-size: 0.9em;'>Team: {player['team']} | Minutes: {player.get('minutes', 0)} | Confidence: {player.get('manager_confidence', 1.0):.2f}</p>
+                </div>
+                """, unsafe_allow_html=True)
     else:
         st.info("No goalkeeper recommendations available")
     

@@ -1,6 +1,17 @@
 # FPL Squad Optimizer ⚽
 
-A comprehensive Fantasy Premier League assistant that uses **machine learning predictions** and **mathematical optimization** to help you build the perfect squad.
+A comprehensi### 🏆 Curren### 📅 Next 3 Gameweeks Fixture Analysis
+- **Position-Specific FDR**: Attack and defense difficulty ratings tailored by player position
+- **Strategic Recommendations**: Captaincy suggestions and transfer priority rankings
+- **Team Form Integration**: Recent performance trends combined with fixture difficulty
+- **Fixture Congestion Analysis**: Multiple games per week identification and impact assessment
+- **Opposition Analysis**: Detailed breakdown of upcoming opponents' defensive/attacking strengthson Points Analysis
+- **Live Gameweek Tracking**: Real-time current and previous gameweek performance monitoring
+- **Season Leaderboards**: Comprehensive rankings across all major statistical categories
+- **Form Analysis**: Hot/cold form identification with 5-game rolling averages
+- **Value Discovery**: Budget options under £6m, differential picks under 5% ownership
+- **Transfer Intelligence**: Most transferred in/out players with ownership percentage analysis
+- **Performance Trends**: Visual charts showing player trajectory and consistency patternstasy Premier League assistant that uses **machine learning predictions** and **mathematical optimization** to help you build the perfect squad.
 
 ![Python](https://img.shields.io/badge/python-v3.8+-blue.svg)
 ![Streamlit](https://img.shields.io/badge/streamlit-latest-red.svg)
@@ -9,20 +20,34 @@ A comprehensive Fantasy Premier League assistant that uses **machine learning pr
 
 ## 🚀 Features
 
-### 🎯 Squad Optimization
-- **Advanced Linear Programming**: Uses PuLP optimization for finding optimal 15-player squads
-- **Budget Management**: Customizable budget constraints (£80-120m range)
-- **Position Requirements**: Enforces proper formation (2 GK, 5 DEF, 5 MID, 3 FWD)
-- **Team Diversity**: Maximum 3 players per team rule
+### 🎯 Advanced Squad Optimization
+- **Strategic Weight System**: 7-factor prediction model balancing recent momentum with strategic planning
+  - **Fixture Advantage**: 25% (Primary focus on upcoming opponent difficulty)
+  - **Last 5 Matches**: 20% (Recent momentum and current form)
+  - **Season Performance**: 20% (Overall consistency and reliability)
+  - **PPG Consistency**: 15% (Points per game sustainability)
+  - **Value Factor**: 10% (Points per million efficiency)
+  - **Form (10 games)**: 5% (Extended form context)
+  - **Top 5 Team Bonus**: 5% (Big team player reliability boost)
+- **Mathematical Optimization**: Uses PuLP linear programming for optimal 15-player squads
+- **Smart Constraints**: Budget (£80-120m), formation requirements, team diversity (max 3 per team)
 - **Manual Controls**: Force include/exclude specific players
-- **Cost Efficiency**: Optimizes points per million spent
+- **Multi-Method Predictions**: Ensemble ML models with strategic weight fallback
+
+### 🧠 Advanced ML Prediction System
+- **Ensemble Models**: Random Forest + Gradient Boosting + Markov Chain integration
+- **Markov Chain Form Predictor**: Analyzes historical form transition patterns for sustainability
+- **Age & Injury Analysis**: Position-specific performance curves and injury impact modeling
+- **News Sentiment Integration**: Real-time analysis of transfer rumors and injury updates
+- **Feature Engineering**: 40+ statistical features with advanced interaction detection
+- **Robust Fallback**: Strategic weights ensure reliability when ML models unavailable
 
 ### 📊 Comprehensive Player Statistics
-- **25+ Statistical Categories**: Goals, assists, clean sheets, bonus points, ICT index, and more
+- **25+ Statistical Categories**: Goals, assists, clean sheets, bonus points, ICT index, minutes, and more
 - **6 Analysis Tabs**: Top Performers, Attack Stats, Defense Stats, General Stats, Advanced Stats, Team Analysis
-- **Professional Data Tables**: Left-aligned formatting with proper styling
-- **Interactive Filtering**: Search by player name, team, or position
-- **Value Analysis**: Best value players, differential picks, budget options
+- **Professional Data Tables**: Left-aligned formatting with consistent styling and search functionality
+- **Interactive Filtering**: Search by player name, team, or position across all statistics
+- **Value Analysis**: Best value players, differential picks, budget gems, and ownership trends
 
 ### � Current Season Points Analysis
 - **Live Gameweek Data**: Real-time current and previous gameweek performance tracking
@@ -37,13 +62,13 @@ A comprehensive Fantasy Premier League assistant that uses **machine learning pr
 - **Team Performance Metrics**: Form analysis and upcoming fixture difficulty
 - **Strategic Insights**: Captain picks and transfer recommendations
 
-### 🌐 Interactive Web Interface
-- **Beautiful Streamlit App**: Modern, responsive design with custom CSS and FPL theme colors
-- **Real-time Updates**: Live data fetching from FPL API with 5-minute caching
-- **4-Page Navigation**: Squad Optimizer, Player Statistics, Next 3 Gameweeks, and Current Season Points
-- **Visual Analytics**: Charts, graphs, and interactive tables with plotly integration
-- **Data Validation**: Automatic quality checks and error handling
-- **Session State Management**: Persistent user selections and preferences
+### 🌐 Professional Web Interface
+- **Modern Streamlit Design**: Responsive layout with FPL theme colors (#37003c, #00ff87)
+- **Real-time Data Pipeline**: Live FPL API integration with intelligent 5-minute caching
+- **4-Page Navigation**: Squad Optimizer, Player Statistics, Next 3 Gameweeks, Current Season Points
+- **Interactive Visualizations**: Plotly charts, performance graphs, and dynamic tables
+- **Data Quality Assurance**: Automatic validation, error handling, and graceful fallbacks
+- **Session Management**: Persistent user preferences and cross-page state retention
 
 ## 🏗️ Project Structure
 
@@ -56,15 +81,24 @@ F_PL-Project/
 │   │   └── fpl_fixtures_latest.json # Fixture and team data
 │   └── processed/                    # Cleaned CSV data ready for analysis
 │       └── fpl_players_latest.csv   # Processed player data with FDR
+├── models/                          # Trained ML models (auto-generated)
+│   ├── ensemble_random_forest.pkl   # Random Forest ensemble model
+│   ├── ensemble_gradient_boost.pkl  # Gradient Boosting model
+│   ├── markov_model.pkl             # Markov Chain form predictor
+│   ├── ensemble_weights.pkl         # Model combination weights
+│   └── scaler.pkl                   # Feature scaling parameters
 ├── src/
 │   ├── fetch_fpl_data.py            # Data fetching with FDR calculations
-│   └── optimizer.py                 # Squad optimization engine (CLI)
+│   ├── optimizer.py                 # Squad optimization engine with ML integration
+│   ├── advanced_ml_models.py        # ML model implementations (Markov, ensemble, sentiment)
+│   └── train_advanced_models.py     # Model training and validation pipeline
 ├── web_app/
 │   ├── app.py                       # Main Streamlit application entry point
-│   ├── FPL_Squad_Optimizer.py      # Squad optimization page with controls
-│   ├── FPL_Player_Statistics.py    # Comprehensive player statistics page
-│   ├── Next_3_Gameweeks.py         # Fixture analysis and recommendations
-│   ├── Current_Season_Points.py    # Live gameweek analysis and season tracking
+│   ├── FPL_Squad_Optimizer.py      # Squad optimization page with strategic weights
+│   ├── FPL_Player_Statistics.py    # Comprehensive player statistics and analysis
+│   ├── Next_3_Gameweeks.py         # Fixture analysis with position-specific FDR
+│   ├── Current_Season_Points.py    # Live gameweek tracking and season analysis
+│   ├── performance_utils.py         # Performance analysis utilities
 │   └── utils.py                     # Shared utilities and navigation functions
 ├── .gitignore                       # Git ignore rules
 ├── requirements.txt                 # Production dependencies
@@ -213,11 +247,24 @@ Strategic insights for upcoming gameweeks:
 - **FDR Calculations**: Custom algorithms for fixture difficulty analysis
 - **Caching**: Efficient data storage and retrieval
 
+### Strategic Prediction Engine
+- **7-Factor Weight System**: Balances fixtures (25%), recent form (20%), season performance (20%), consistency (15%), value (10%), extended form (5%), and big team bonus (5%)
+- **Ensemble ML Pipeline**: Random Forest + Gradient Boosting + Markov Chain models with intelligent fallback
+- **Feature Engineering**: 40+ statistical features with interaction detection and position-specific analysis
+- **Robust Architecture**: Strategic weights ensure reliable predictions when ML models are unavailable
+
+### Advanced ML Models
+- **Markov Chain Form Predictor**: Analyzes historical form transitions to predict performance sustainability
+- **Random Forest Ensemble**: Discovers complex feature interactions and non-linear patterns
+- **Gradient Boosting Corrector**: Sequential error reduction and edge case handling
+- **News Sentiment Analysis**: Real-time processing of transfer rumors and injury updates
+- **Age/Performance Curves**: Position-specific decline models and injury impact assessment
+
 ### Optimization Algorithm
-- **Objective Function**: Maximize predicted points within constraints
-- **Constraint Programming**: Budget, position, and team diversity rules
-- **Solver**: PuLP with CBC optimizer for reliable solutions
-- **Performance**: Sub-second optimization for most scenarios
+- **Objective Function**: Maximize predicted points within FPL constraints
+- **Multi-Constraint Solving**: Budget (£80-120m), formation (2-5-5-3), team diversity (max 3 per team)
+- **Linear Programming**: PuLP with CBC optimizer for mathematically optimal solutions
+- **Real-time Performance**: Sub-second optimization with manual player inclusion/exclusion
 
 ### Web Framework
 - **Frontend**: Streamlit with custom CSS using FPL theme colors (#37003c, #00ff87)
@@ -240,29 +287,36 @@ This project uses the official Fantasy Premier League API:
 
 ## 📊 Sample Output
 
-### 🏆 Optimal Squad Example:
+### 🏆 Optimal Squad Example (Strategic Weight System):
 ```
 💰 BUDGET: £100.0m | SPENT: £99.8m | REMAINING: £0.2m
 🎯 PREDICTED POINTS: 1,847 (Season Total)
+📊 PREDICTION METHOD: Strategic Weights (Fixtures 25% + Last5 20% + Season 20% + PPG 15% + Value 10% + Form10 5% + Top5 5%)
 
 STARTING XI:
-GK  Alisson (£5.5m)           - Liverpool
-DEF Alexander-Arnold (£7.1m)   - Liverpool  
-DEF Saliba (£5.9m)            - Arsenal
-DEF Trippier (£6.2m)          - Newcastle
-MID Salah (£13.6m)            - Liverpool
-MID De Bruyne (£12.1m)        - Man City
-MID Saka (£11.2m)             - Arsenal
-MID Palmer (£10.7m)           - Chelsea
-FWD Haaland (£14.9m)          - Man City
-FWD Watkins (£9.1m)           - Aston Villa
-FWD Isak (£8.4m)              - Newcastle
+GK  Alisson (£5.5m)           - Liverpool     [Prediction: 156 pts]
+DEF Alexander-Arnold (£7.1m)   - Liverpool     [Prediction: 178 pts] 
+DEF Saliba (£5.9m)            - Arsenal       [Prediction: 145 pts]
+DEF Trippier (£6.2m)          - Newcastle     [Prediction: 142 pts]
+MID Salah (£13.6m)            - Liverpool     [Prediction: 287 pts]
+MID De Bruyne (£12.1m)        - Man City      [Prediction: 245 pts]
+MID Saka (£11.2m)             - Arsenal       [Prediction: 232 pts]
+MID Palmer (£10.7m)           - Chelsea       [Prediction: 218 pts]
+FWD Haaland (£14.9m)          - Man City      [Prediction: 298 pts]
+FWD Watkins (£9.1m)           - Aston Villa   [Prediction: 189 pts]
+FWD Isak (£8.4m)              - Newcastle     [Prediction: 167 pts]
 
 BENCH:
-GK  Flekken (£4.6m)           - Brentford
-DEF Konsa (£4.8m)             - Aston Villa
-MID Luis Díaz (£7.9m)         - Liverpool
-FWD Wood (£6.2m)              - Newcastle
+GK  Flekken (£4.6m)           - Brentford     [Prediction: 125 pts]
+DEF Konsa (£4.8m)             - Aston Villa   [Prediction: 98 pts]
+MID Luis Díaz (£7.9m)         - Liverpool     [Prediction: 142 pts]
+FWD Wood (£6.2m)              - Newcastle     [Prediction: 89 pts]
+
+STRATEGIC INSIGHTS:
+🔥 High Fixture Weight (25%): Prioritizes players with favorable upcoming opponents
+⚡ Recent Momentum (20%): Emphasizes last 5 matches form for current performance
+🏆 Season Reliability (20%): Balances with proven consistent performers
+💎 Value Efficiency (10%): Optimizes points per million across the squad
 ```
 
 ### 📈 Player Statistics Sample:
@@ -303,19 +357,45 @@ Current Status: In Progress | Average Score: 45 pts | Deadline: Dec 15, 2024
 3. Chris Wood (Newcastle)        - 11.9 value, £6.2m
 ```
 
-### 🔮 Fixture Analysis Sample:
+### 🔮 Fixture Analysis Sample (Position-Specific FDR):
 ```
-📅 NEXT 3 GAMEWEEKS ANALYSIS:
+📅 NEXT 3 GAMEWEEKS ANALYSIS (Strategic Weight System: Fixtures 25%)
 
 GW15: Liverpool (H) vs Brighton
-- Attack FDR: 2/5 (Good)
-- Defense FDR: 3/5 (Average)
-- Recommendation: Strong captain option for Salah
+┌─────────────────┬─────────────┬──────────────────┐
+│ Position        │ Attack FDR  │ Defense FDR      │
+├─────────────────┼─────────────┼──────────────────┤
+│ Forwards        │ 2/5 (Easy)  │ N/A              │
+│ Midfielders     │ 2/5 (Easy)  │ N/A              │
+│ Defenders       │ N/A         │ 3/5 (Average)    │
+│ Goalkeepers     │ N/A         │ 3/5 (Average)    │
+└─────────────────┴─────────────┴──────────────────┘
+🎯 Strategic Recommendation: Strong captain option for Salah/Núñez
+💡 Weight Impact: 25% fixture boost for Liverpool attackers
 
 GW16: Arsenal (A) vs Man City  
-- Attack FDR: 4/5 (Difficult)
-- Defense FDR: 4/5 (Difficult)
-- Recommendation: Avoid Arsenal attackers, consider City defense
+┌─────────────────┬─────────────┬──────────────────┐
+│ Position        │ Attack FDR  │ Defense FDR      │
+├─────────────────┼─────────────┼──────────────────┤
+│ Forwards        │ 4/5 (Hard)  │ N/A              │
+│ Midfielders     │ 4/5 (Hard)  │ N/A              │
+│ Defenders       │ N/A         │ 4/5 (Difficult) │
+│ Goalkeepers     │ N/A         │ 4/5 (Difficult) │
+└─────────────────┴─────────────┴──────────────────┘
+🚫 Strategic Recommendation: Avoid Arsenal attackers, consider City defense
+⚠️ Weight Impact: 25% fixture penalty for both teams' attacking returns
+
+GW17: Newcastle (H) vs Brentford
+┌─────────────────┬─────────────┬──────────────────┐
+│ Position        │ Attack FDR  │ Defense FDR      │
+├─────────────────┼─────────────┼──────────────────┤
+│ Forwards        │ 2/5 (Easy)  │ N/A              │
+│ Midfielders     │ 2/5 (Easy)  │ N/A              │
+│ Defenders       │ N/A         │ 2/5 (Easy)       │
+│ Goalkeepers     │ N/A         │ 2/5 (Easy)       │
+└─────────────────┴─────────────┴──────────────────┘
+⭐ Strategic Recommendation: Newcastle double-up opportunity
+🏆 Weight Impact: 25% fixture boost for both attacking and defensive Newcastle assets
 ```
 
 ## ⚠️ Disclaimer

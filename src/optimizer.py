@@ -4,6 +4,9 @@ FPL Squad Optimizer
 
 This module uses linear programming to find the optimal 15-player squad
 within budget constraints and position requirements.
+
+Enhanced with advanced ML models including Markov Chains, age analysis,
+news sentiment, and ensemble predictions.
 """
 
 import pandas as pd
@@ -12,6 +15,14 @@ from pulp import *
 import pickle
 import os
 import logging
+
+# Import advanced ML models
+try:
+    from advanced_ml_models import EnsemblePredictor, MarkovChainFormPredictor
+    ADVANCED_MODELS_AVAILABLE = True
+except ImportError:
+    ADVANCED_MODELS_AVAILABLE = False
+    logging.warning("Advanced ML models not available. Using fallback prediction.")
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -25,6 +36,15 @@ class FPLOptimizer:
         self.min_budget_usage = min_budget_usage  # Use at least 99% of budget
         self.model_path = model_path
         self.model = None
+        
+        # Initialize advanced ML system
+        self.use_advanced_models = ADVANCED_MODELS_AVAILABLE
+        if self.use_advanced_models:
+            self.ensemble_predictor = EnsemblePredictor()
+            self.advanced_models_loaded = False
+        else:
+            self.ensemble_predictor = None
+            self.advanced_models_loaded = False
         
         # Squad constraints
         self.position_requirements = {
@@ -64,22 +84,47 @@ class FPLOptimizer:
         self.manually_selected_players = []  # List of player IDs to force include
         
     def load_model(self):
-        """Load the trained prediction model"""
+        """Load the trained prediction model (basic or advanced)"""
         try:
+            # Try to load advanced models first
+            if self.use_advanced_models and self.ensemble_predictor:
+                if self.ensemble_predictor.load_models():
+                    self.advanced_models_loaded = True
+                    logger.info("🚀 Advanced ML ensemble loaded successfully!")
+                    return
+            
+            # Fallback to basic model
             if os.path.exists(self.model_path):
                 with open(self.model_path, 'rb') as f:
                     self.model = pickle.load(f)
-                logger.info("Model loaded successfully")
+                logger.info("Basic model loaded successfully")
             else:
-                logger.warning(f"Model not found at {self.model_path}. Using form as prediction.")
+                logger.warning(f"No model found at {self.model_path}. Using form-based prediction.")
                 self.model = None
         except Exception as e:
-            logger.error(f"Error loading model: {e}")
+            logger.error(f"Error loading models: {e}")
             self.model = None
+            self.advanced_models_loaded = False
     
     def predict_points(self, players_df):
-        """Predict points for all players with FDR integration"""
-        if self.model is not None:
+        """Predict points for all players using best available method"""
+        
+        # Method 1: Advanced ML Ensemble (if available)
+        if self.use_advanced_models and self.advanced_models_loaded:
+            try:
+                logger.info("🤖 Using Advanced ML Ensemble (Markov + Age + News + ML)")
+                predictions = self.ensemble_predictor.predict_with_ensemble(players_df)
+                players_df['predicted_points'] = predictions
+                
+                logger.info("✅ Advanced predictions generated successfully")
+                
+            except Exception as e:
+                logger.warning(f"Advanced prediction failed: {e}. Falling back to basic model.")
+                self.advanced_models_loaded = False
+                return self.predict_points(players_df)  # Recursive fallback
+        
+        # Method 2: Basic trained model
+        elif self.model is not None:
             try:
                 # Features used in model training
                 feature_columns = [
@@ -99,21 +144,154 @@ class FPLOptimizer:
                 predictions = self.model.predict(X)
                 players_df['predicted_points'] = predictions
                 
-                logger.info("Used trained model for predictions")
+                logger.info("📊 Used basic trained model for predictions")
                 
             except Exception as e:
-                logger.warning(f"Model prediction failed: {e}. Using fallback prediction.")
+                logger.warning(f"Basic model prediction failed: {e}. Using fallback prediction.")
                 # Fallback to form-based prediction
                 players_df['predicted_points'] = players_df['form'] * 2.5
+                
+        # Method 3: Enhanced strategic prediction (fixtures + performance)
         else:
-            # Fallback prediction based on form and recent performance
-            players_df['predicted_points'] = players_df['form'] * 2.5
+            logger.info("📈 Using enhanced strategic prediction (fixtures + last 5 matches + season + factors)")
+            # Strategic prediction with updated weight distribution
+            
+            # 1. Season Performance Base (20% weight) - reduced further
+            season_base = players_df['total_points'] / max(players_df['total_points'].max() / 10, 1)
+            season_base = np.clip(season_base, 0, 10)  # Cap at 10 points
+            
+            # 2. Last 5 Matches Performance (20% weight) - NEW: focus on very recent performance
+            last5_base = players_df['form'] * 1.8  # Form represents last 5 matches
+            last5_base = np.clip(last5_base, 0, 9)  # Higher impact for recent matches
+            
+            # 3. Fixture Difficulty Analysis (25% weight) - maintain high priority
+            fixture_score = self.calculate_fixture_advantage(players_df)
+            fixture_score = np.clip(fixture_score, 0, 8)  # Cap fixture advantage
+            
+            # 4. Recent Form Last 10 Matches (5% weight) - minimal impact
+            form10_base = players_df.get('form_10', players_df['form']) * 0.8  # Fallback to form if no form_10
+            form10_base = np.clip(form10_base, 0, 4)   # Low impact
+            
+            # 5. Points Per Game Consistency (15% weight)
+            ppg_base = players_df['points_per_game'] * 1.5
+            ppg_base = np.clip(ppg_base, 0, 7)
+            
+            # 6. Value for Money Factor (10% weight)
+            value_base = (players_df['total_points'] / players_df['cost']) * 0.8
+            value_base = np.clip(value_base, 0, 6)
+            
+            # 7. Top 5 Team Bonus (5% weight) - NEW: boost for big teams
+            top5_teams = ['Man City', 'Arsenal', 'Liverpool', 'Chelsea', 'Man Utd']  # Adjust as needed
+            top5_bonus = players_df['team'].apply(lambda x: 1.0 if x in top5_teams else 0.0) * 2.0
+            top5_bonus = np.clip(top5_bonus, 0, 2)
+            
+            # Weighted combination with updated strategic focus
+            base_prediction = (
+                season_base * 0.20 +     # Season performance (20%)
+                last5_base * 0.20 +      # Last 5 matches (20%)
+                fixture_score * 0.25 +   # Fixture advantage (25%)
+                form10_base * 0.05 +     # Recent form last 10 (5%)
+                ppg_base * 0.15 +        # PPG consistency (15%)
+                value_base * 0.10 +      # Value factor (10%)
+                top5_bonus * 0.05        # Top 5 team bonus (5%)
+            )
+            
+            # Adjust for availability (minutes played)
+            minutes_factor = np.clip(players_df['minutes'] / 900, 0.4, 1.1)  # Less punitive
+            
+            # Adjust for team popularity/quality (reduced impact)
+            popularity_factor = 1 + (players_df['selected_by_percent'] / 100) * 0.1  # Reduced from 0.2
+            
+            # Position-specific adjustments
+            position_multipliers = {
+                'Goalkeeper': 0.9,     # GKs typically score less
+                'Defender': 1.0,       # Baseline
+                'Midfielder': 1.1,     # Slight boost for versatility
+                'Forward': 1.05        # Slight boost for attacking returns
+            }
+            
+            position_factor = players_df['position'].map(position_multipliers).fillna(1.0)
+            
+            # Final balanced prediction
+            players_df['predicted_points'] = (
+                base_prediction * 
+                minutes_factor * 
+                popularity_factor *
+                position_factor
+            )
+            
+            # Add small randomization to prevent identical predictions
+            players_df['predicted_points'] += np.random.normal(0, 0.1, len(players_df))
+            
+            logger.info("✅ Applied strategic prediction: Season (20%) + Last5 (20%) + Fixtures (25%) + Form10 (5%) + PPG (15%) + Value (10%) + Top5 (5%)")
         
         # Apply FDR adjustments if enabled
         if self.use_fdr and 'fdr_overall' in players_df.columns:
             players_df = self.apply_fdr_adjustments(players_df)
         
         return players_df
+    
+    def calculate_fixture_advantage(self, players_df):
+        """
+        Calculate fixture advantage score based on upcoming gameweek difficulty
+        Returns higher scores for players with easier upcoming fixtures
+        """
+        fixture_scores = np.zeros(len(players_df))
+        
+        try:
+            # Check if FDR columns exist
+            fdr_columns = ['fdr_overall', 'fdr_attack', 'fdr_defence']
+            available_fdr = [col for col in fdr_columns if col in players_df.columns]
+            
+            if not available_fdr:
+                logger.warning("No FDR data available, using neutral fixture scores")
+                return np.full(len(players_df), 4.0)  # Neutral score
+            
+            # Calculate position-specific fixture advantages
+            for idx, player in players_df.iterrows():
+                position = player['position']
+                base_score = 0
+                
+                # Get FDR values (default to 3.0 if missing)
+                fdr_overall = player.get('fdr_overall', 3.0)
+                fdr_attack = player.get('fdr_attack', 3.0) 
+                fdr_defence = player.get('fdr_defence', 3.0)
+                
+                # Position-specific fixture scoring
+                if position in ['Forward', 'Midfielder']:
+                    # Attackers benefit from low attack FDR (easier to score/assist)
+                    attack_advantage = max(0, 5 - fdr_attack)  # 0-4 scale
+                    overall_advantage = max(0, 5 - fdr_overall) * 0.5  # 0-2 scale
+                    base_score = attack_advantage + overall_advantage
+                    
+                elif position == 'Defender':
+                    # Defenders benefit from low defence FDR (clean sheets + attacking returns)
+                    defence_advantage = max(0, 5 - fdr_defence) * 1.2  # Weighted higher
+                    attack_advantage = max(0, 5 - fdr_attack) * 0.4   # Some attacking potential
+                    overall_advantage = max(0, 5 - fdr_overall) * 0.4
+                    base_score = defence_advantage + attack_advantage + overall_advantage
+                    
+                elif position == 'Goalkeeper':
+                    # Goalkeepers primarily benefit from low defence FDR
+                    defence_advantage = max(0, 5 - fdr_defence) * 1.5  # Heavily weighted
+                    overall_advantage = max(0, 5 - fdr_overall) * 0.3
+                    base_score = defence_advantage + overall_advantage
+                
+                # Apply team strength modifiers
+                # Popular teams (high selection %) often have better fixtures or easier wins
+                team_popularity = player.get('selected_by_percent', 0) / 100
+                popularity_bonus = team_popularity * 0.5  # Small bonus for popular teams
+                
+                # Combine for final fixture score
+                fixture_scores[idx] = base_score + popularity_bonus
+                
+            logger.info(f"Calculated fixture advantages: avg={fixture_scores.mean():.2f}, max={fixture_scores.max():.2f}")
+            
+        except Exception as e:
+            logger.warning(f"Error calculating fixture advantage: {e}, using neutral scores")
+            fixture_scores = np.full(len(players_df), 4.0)
+        
+        return fixture_scores
     
     def apply_fdr_adjustments(self, players_df):
         """Apply FDR adjustments to predicted points"""
@@ -417,17 +595,33 @@ class FPLOptimizer:
         logger.info(f"Updated FDR weights: {self.fdr_weights}")
     
     def prepare_final_points(self, players_df):
-        """Prepare final points for optimization including FDR adjustments"""
-        # Start with predicted points
+        """Prepare final points for optimization including enhanced FDR and fixture adjustments"""
+        # Start with predicted points (already includes fixture analysis)
         players_df['weighted_points'] = players_df['predicted_points'].copy()
         
-        # Add FDR-adjusted value if available
+        # Add enhanced FDR-adjusted value if available
         if 'fdr_adjusted_value' in players_df.columns:
             players_df['fdr_value_score'] = players_df['fdr_adjusted_value'] * players_df['cost']
-            players_df['weighted_points'] = players_df['fdr_value_score']
+            # Blend predicted points with FDR value score for more balanced optimization
+            players_df['weighted_points'] = (
+                players_df['predicted_points'] * 0.7 +  # 70% predicted points
+                players_df['fdr_value_score'] * 0.3     # 30% FDR value score
+            )
         
-        # Add popularity factor (slight boost for highly selected players)
-        players_df['popularity_factor'] = 1 + (players_df['selected_by_percent'] / 100) * 0.05
+        # Enhanced popularity factor with fixture consideration
+        base_popularity = 1 + (players_df['selected_by_percent'] / 100) * 0.03  # Reduced base impact
+        
+        # Fixture-aware popularity boost (popular players with good fixtures get extra boost)
+        if 'fdr_overall' in players_df.columns:
+            fixture_popularity_boost = (
+                (players_df['selected_by_percent'] / 100) * 
+                (5 - players_df['fdr_overall']) / 4 * 0.02  # Extra boost for popular players with good fixtures
+            )
+            players_df['popularity_factor'] = base_popularity + fixture_popularity_boost
+        else:
+            players_df['popularity_factor'] = base_popularity
+        
+        # Apply final adjustments
         players_df['final_points'] = players_df['weighted_points'] * players_df['popularity_factor']
         
         return players_df

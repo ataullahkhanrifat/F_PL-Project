@@ -10,6 +10,7 @@ import requests
 import json
 import pandas as pd
 import os
+import glob
 from datetime import datetime
 import logging
 
@@ -33,6 +34,71 @@ class FPLDataFetcher:
         # Cache for team strength data
         self.team_strength_cache = {}
         self.current_gameweek = None
+        
+        # File retention settings
+        self.keep_recent_files = 3  # Keep last 3 timestamped files as backup
+    
+    def cleanup_old_files(self, file_pattern, directory, keep_recent=None, aggressive=False):
+        """Clean up old timestamped files, keeping only the most recent ones"""
+        if keep_recent is None:
+            keep_recent = self.keep_recent_files
+            
+        # If aggressive cleanup is requested, keep only 1 recent file
+        if aggressive:
+            keep_recent = 1
+            
+        # Get all files matching the pattern (excluding *_latest.* files)
+        pattern = os.path.join(directory, file_pattern)
+        all_files = glob.glob(pattern)
+        
+        # Filter out the *_latest.* files (we always keep these)
+        timestamped_files = [f for f in all_files if '_latest.' not in os.path.basename(f)]
+        
+        # Sort by modification time (newest first)
+        timestamped_files.sort(key=os.path.getmtime, reverse=True)
+        
+        # Keep only the most recent files, remove the rest
+        files_to_remove = timestamped_files[keep_recent:]
+        
+        removed_count = 0
+        for file_path in files_to_remove:
+            try:
+                os.remove(file_path)
+                removed_count += 1
+                logger.info(f"Cleaned up old file: {os.path.basename(file_path)}")
+            except OSError as e:
+                logger.warning(f"Could not remove {file_path}: {e}")
+        
+        if removed_count > 0:
+            logger.info(f"Cleaned up {removed_count} old files. Kept {min(len(timestamped_files), keep_recent)} recent files.")
+        else:
+            logger.info(f"No old files to clean up. Found {len(timestamped_files)} timestamped files.")
+        
+        return removed_count
+    
+    def cleanup_all_old_files(self, web_app_mode=False):
+        """Clean up all old timestamped files (aggressive mode for web app)"""
+        if web_app_mode:
+            logger.info("Starting web app cleanup - removing ALL old timestamped files...")
+            keep_count = 0  # Keep no old files in web app mode
+        else:
+            logger.info("Starting aggressive cleanup of all old timestamped files...")
+            keep_count = 1  # Keep only 1 recent in CLI mode
+        
+        total_removed = 0
+        
+        # Clean up data files
+        total_removed += self.cleanup_old_files("fpl_data_*.json", self.raw_data_dir, keep_recent=keep_count)
+        
+        # Clean up fixture files
+        total_removed += self.cleanup_old_files("fpl_fixtures_*.json", self.raw_data_dir, keep_recent=keep_count)
+        
+        # Clean up processed files
+        total_removed += self.cleanup_old_files("fpl_players_*.csv", self.processed_data_dir, keep_recent=keep_count)
+        
+        cleanup_mode = "Web app" if web_app_mode else "Aggressive"
+        logger.info(f"{cleanup_mode} cleanup completed. Total files removed: {total_removed}")
+        return total_removed
     
     def fetch_data(self):
         """Fetch raw data from FPL API"""
@@ -43,24 +109,33 @@ class FPLDataFetcher:
             
             data = response.json()
             
+            # Clean up old data files before saving new ones
+            logger.info("Running cleanup before saving new data files...")
+            self.cleanup_old_files("fpl_data_*.json", self.raw_data_dir, keep_recent=self.keep_recent_files)
+            
             # Save raw data with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"fpl_data_{timestamp}.json"
             filepath = os.path.join(self.raw_data_dir, filename)
             
+            logger.info(f"Saving raw data to: {filepath}")
             with open(filepath, 'w') as f:
                 json.dump(data, f, indent=2)
             
             # Also save as latest
             latest_filepath = os.path.join(self.raw_data_dir, "fpl_data_latest.json")
+            logger.info(f"Saving latest data to: {latest_filepath}")
             with open(latest_filepath, 'w') as f:
                 json.dump(data, f, indent=2)
             
-            logger.info(f"Raw data saved to {filepath}")
+            logger.info(f"Raw data saved successfully to {filepath}")
             return data
             
         except requests.RequestException as e:
             logger.error(f"Error fetching data: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in fetch_data: {e}")
             raise
     
     def fetch_fixtures(self):
@@ -72,24 +147,33 @@ class FPLDataFetcher:
             
             fixtures_data = response.json()
             
+            # Clean up old fixture files before saving new ones
+            logger.info("Running cleanup before saving new fixture files...")
+            self.cleanup_old_files("fpl_fixtures_*.json", self.raw_data_dir, keep_recent=self.keep_recent_files)
+            
             # Save fixtures data with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"fpl_fixtures_{timestamp}.json"
             filepath = os.path.join(self.raw_data_dir, filename)
             
+            logger.info(f"Saving fixture data to: {filepath}")
             with open(filepath, 'w') as f:
                 json.dump(fixtures_data, f, indent=2)
             
             # Also save as latest
             latest_filepath = os.path.join(self.raw_data_dir, "fpl_fixtures_latest.json")
+            logger.info(f"Saving latest fixtures to: {latest_filepath}")
             with open(latest_filepath, 'w') as f:
                 json.dump(fixtures_data, f, indent=2)
             
-            logger.info(f"Fixtures data saved to {filepath}")
+            logger.info(f"Fixtures data saved successfully to {filepath}")
             return fixtures_data
             
         except requests.RequestException as e:
             logger.error(f"Error fetching fixtures: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in fetch_fixtures: {e}")
             raise
     
     def calculate_team_fdr_from_fixtures(self, fixtures_data, teams_data, upcoming_gameweeks=5):
@@ -353,25 +437,41 @@ class FPLDataFetcher:
     
     def save_processed_data(self, df):
         """Save processed data to CSV"""
+        # Clean up old processed files before saving new ones
+        logger.info("Running cleanup before saving new processed files...")
+        self.cleanup_old_files("fpl_players_*.csv", self.processed_data_dir, keep_recent=self.keep_recent_files)
+        
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"fpl_players_{timestamp}.csv"
         filepath = os.path.join(self.processed_data_dir, filename)
         
+        logger.info(f"Saving processed data to: {filepath}")
         df.to_csv(filepath, index=False)
         
         # Also save as latest
         latest_filepath = os.path.join(self.processed_data_dir, "fpl_players_latest.csv")
+        logger.info(f"Saving latest processed data to: {latest_filepath}")
         df.to_csv(latest_filepath, index=False)
         
-        logger.info(f"Processed data saved to {filepath}")
+        logger.info(f"Processed data saved successfully to {filepath}")
         logger.info(f"Data shape: {df.shape}")
         logger.info(f"Columns: {list(df.columns)}")
         
         return filepath
     
-    def run(self, upcoming_gameweeks=5):
+    def run(self, upcoming_gameweeks=5, web_app_mode=False):
         """Run the complete data fetching and processing pipeline"""
         try:
+            # Set cleanup mode based on where we're called from
+            if web_app_mode:
+                # Web app mode: aggressive cleanup (remove all old files)
+                self.keep_recent_files = 0
+                logger.info("Running in web app mode - aggressive file cleanup enabled")
+            else:
+                # CLI mode: keep some recent files as backup
+                self.keep_recent_files = 3
+                logger.info("Running in CLI mode - keeping recent backup files")
+            
             # Fetch raw data
             raw_data = self.fetch_data()
             

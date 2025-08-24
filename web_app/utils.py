@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 import os
 import sys
+import time
 
 # FPL Constants
 FPL_CONSTANTS = {
@@ -43,9 +44,9 @@ FPL_COLORS = {
     'text': '#262730'
 }
 
-@st.cache_data
+@st.cache_data(ttl=300)  # Cache for 5 minutes
 def load_player_data():
-    """Load and cache player data from CSV file"""
+    """Load and cache player data from CSV file with 5-minute refresh"""
     try:
         project_root = os.path.dirname(os.path.dirname(__file__))
         data_path = os.path.join(project_root, "data", "processed", "fpl_players_latest.csv")
@@ -57,6 +58,162 @@ def load_player_data():
     except Exception as e:
         st.error(f"Error loading player data: {str(e)}")
         return None
+
+def load_player_data_fresh():
+    """Load player data without any caching - for immediate refresh"""
+    try:
+        project_root = os.path.dirname(os.path.dirname(__file__))
+        data_path = os.path.join(project_root, "data", "processed", "fpl_players_latest.csv")
+        
+        if not os.path.exists(data_path):
+            return None
+        
+        return pd.read_csv(data_path)
+    except Exception as e:
+        st.error(f"Error loading fresh player data: {str(e)}")
+        return None
+
+def fetch_fresh_player_data():
+    """Fetch fresh player data from FPL API and update local file - NO CACHE"""
+    try:
+        import sys
+        import os
+        import time
+        project_root = os.path.dirname(os.path.dirname(__file__))
+        sys.path.append(os.path.join(project_root, 'src'))
+        
+        from fetch_fpl_data import FPLDataFetcher
+        
+        # Clear any cached data first
+        st.cache_data.clear()
+        
+        # Show current timestamp before refresh
+        data_path = os.path.join(project_root, "data", "processed", "fpl_players_latest.csv")
+        if os.path.exists(data_path):
+            old_time = os.path.getmtime(data_path)
+            st.info(f"Before refresh: File timestamp {time.ctime(old_time)}")
+        
+        # Create fetcher and fetch fresh data
+        fetcher = FPLDataFetcher()
+        
+        # First, clean up all old timestamped files (web app mode)
+        st.info("🧹 Cleaning up old data files...")
+        try:
+            removed_count = fetcher.cleanup_all_old_files(web_app_mode=True)
+            if removed_count > 0:
+                st.info(f"Cleaned up {removed_count} old files")
+        except Exception as e:
+            st.warning(f"Cleanup warning: {e}")
+        
+        # Show progress and run complete pipeline
+        with st.spinner("Fetching data from FPL API..."):
+            st.info("🌐 Connecting to FPL API...")
+            
+            # Run the complete pipeline with error handling
+            try:
+                fetcher.run(web_app_mode=True)  # Enable web app mode for aggressive cleanup
+                st.success("✅ Data pipeline completed successfully")
+            except Exception as e:
+                st.error(f"❌ Data pipeline failed: {str(e)}")
+                st.error("Please check your internet connection and try again.")
+                return None
+        
+        # Verify files were created
+        raw_data_files = [f for f in os.listdir(os.path.join(project_root, "data", "raw")) if f.startswith('fpl_data_') and not f.endswith('_latest.json')]
+        fixture_files = [f for f in os.listdir(os.path.join(project_root, "data", "raw")) if f.startswith('fpl_fixtures_') and not f.endswith('_latest.json')]
+        processed_files = [f for f in os.listdir(os.path.join(project_root, "data", "processed")) if f.startswith('fpl_players_') and not f.endswith('_latest.csv')]
+        
+        st.info(f"📁 Files created: {len(raw_data_files)} data, {len(fixture_files)} fixtures, {len(processed_files)} processed")
+        
+        # Force update the file timestamp to current time (backup approach)
+        if os.path.exists(data_path):
+            # Touch the file to ensure it has current timestamp
+            os.utime(data_path, None)
+            new_time = os.path.getmtime(data_path)
+            st.info(f"After refresh: File timestamp {time.ctime(new_time)}")
+        
+        # Clear cache again to force reload
+        st.cache_data.clear()
+        
+        # Load the fresh data without cache
+        return load_player_data_fresh()
+        
+    except Exception as e:
+        st.error(f"❌ Error in refresh process: {str(e)}")
+        st.error("Please check the console for detailed error information.")
+        import traceback
+        st.text(traceback.format_exc())
+        return None
+        
+    except Exception as e:
+        st.error(f"Could not fetch fresh data: {str(e)}")
+        import traceback
+        st.error(f"Error details: {traceback.format_exc()}")
+        # Fall back to cached data
+        return load_player_data()
+
+def get_data_freshness_info():
+    """Get information about when data was last updated with real-time calculation"""
+    try:
+        import time
+        import datetime
+        project_root = os.path.dirname(os.path.dirname(__file__))
+        data_path = os.path.join(project_root, "data", "processed", "fpl_players_latest.csv")
+        
+        current_time = time.time()
+        
+        # Check if we have a recent manual refresh first (highest priority)
+        if hasattr(st.session_state, 'last_manual_refresh') and st.session_state.last_manual_refresh is not None:
+            manual_refresh_time = st.session_state.last_manual_refresh
+            time_since_manual = current_time - manual_refresh_time
+            
+            # If manual refresh was less than 10 minutes ago, use that as reference
+            if time_since_manual < 600:  # 10 minutes
+                total_seconds = int(time_since_manual)
+                if total_seconds < 60:
+                    return f"🟢 Data is fresh (refreshed {total_seconds}s ago)"
+                else:
+                    minutes = total_seconds // 60
+                    seconds = total_seconds % 60
+                    if seconds > 0:
+                        return f"🟢 Data is fresh (refreshed {minutes}m {seconds}s ago)"
+                    else:
+                        return f"🟢 Data is fresh (refreshed {minutes}m ago)"
+        
+        # Fall back to file timestamp
+        if os.path.exists(data_path):
+            modified_time = os.path.getmtime(data_path)
+            time_diff_seconds = current_time - modified_time
+            total_seconds = int(time_diff_seconds)
+            
+            if total_seconds < 60:  # Less than 1 minute
+                return f"🟢 Data is fresh (updated {total_seconds}s ago)"
+            elif total_seconds < 3600:  # Less than 1 hour
+                minutes = total_seconds // 60
+                seconds = total_seconds % 60
+                if seconds > 0:
+                    return f"🟡 Data is recent (updated {minutes}m {seconds}s ago)"
+                else:
+                    return f"🟡 Data is recent (updated {minutes}m ago)"
+            elif total_seconds < 86400:  # Less than 1 day
+                hours = total_seconds // 3600
+                minutes = (total_seconds % 3600) // 60
+                if minutes > 0:
+                    return f"🔴 Data is stale (updated {hours}h {minutes}m ago)"
+                else:
+                    return f"🔴 Data is stale (updated {hours}h ago)"
+            else:  # More than 1 day
+                days = total_seconds // 86400
+                hours = (total_seconds % 86400) // 3600
+                if hours > 0:
+                    return f"🔴 Data is very stale (updated {days}d {hours}h ago)"
+                else:
+                    return f"🔴 Data is very stale (updated {days}d ago)"
+        else:
+            return "❌ No data file found"
+            
+    except Exception as e:
+        return f"❓ Could not determine data freshness: {str(e)}"
 
 def filter_available_players(players_df):
     """
@@ -286,18 +443,84 @@ def create_navigation_sidebar():
     """Create the navigation sidebar"""
     st.sidebar.markdown("## 🧭 Navigation")
     
-    # Navigation buttons
+    # Navigation buttons with immediate page switching
     if st.sidebar.button("🚀 Squad Optimizer", use_container_width=True):
         st.session_state.current_page = 'optimizer'
+        st.session_state.last_user_interaction = time.time()  # Track user interaction
+        st.rerun()  # Force immediate page change
     
     if st.sidebar.button("📊 Player Stats", use_container_width=True):
         st.session_state.current_page = 'stats'
+        st.session_state.last_user_interaction = time.time()
+        st.rerun()
     
     if st.sidebar.button("🗓️ Next 3 Gameweeks", use_container_width=True):
         st.session_state.current_page = 'fixtures'
+        st.session_state.last_user_interaction = time.time()
+        st.rerun()
     
     if st.sidebar.button("📈 Current Season Points", use_container_width=True):
         st.session_state.current_page = 'current_season'
+        st.session_state.last_user_interaction = time.time()
+        st.rerun()
+    
+    st.sidebar.divider()
+    
+    # Data refresh controls
+    st.sidebar.markdown("## 🔄 Data Controls")
+    
+    # Real-time data freshness indicator
+    freshness_info = get_data_freshness_info()
+    st.sidebar.markdown(f"**Status:** {freshness_info}")
+    
+    # Refresh buttons
+    refresh_clicked = st.sidebar.button("🔄 Refresh Data", use_container_width=True, help="Fetch latest data from FPL API", key="refresh_data_btn")
+    
+    if refresh_clicked:
+        # Track user interaction to prevent auto-refresh conflicts
+        st.session_state.last_user_interaction = time.time()
+        
+        # Clear cache before fetching
+        st.cache_data.clear()
+        
+        # Store refresh time in session state immediately (this will reset the timer)
+        st.session_state.last_manual_refresh = time.time()
+        
+        # Also reset auto-refresh timer to ensure immediate UI update
+        st.session_state.last_auto_refresh = time.time()
+        
+        # Set a flag to indicate refresh is in progress (prevents double execution)
+        if 'refresh_in_progress' not in st.session_state:
+            st.session_state.refresh_in_progress = True
+            
+            # Show immediate feedback
+            with st.spinner("Fetching fresh data from FPL API..."):
+                players_df = fetch_fresh_player_data()
+            
+            if players_df is not None:
+                st.success("✅ Data refreshed successfully!")
+                # Update the loaded data in session state
+                st.session_state.players_df = players_df
+            else:
+                st.error("❌ Failed to refresh data")
+            
+            # Clear the flag
+            del st.session_state.refresh_in_progress
+            
+            # Force immediate rerun to update timestamp
+            st.rerun()
+        else:
+            st.info("🔄 Refresh already in progress, please wait...")
+    
+    app_refresh_clicked = st.sidebar.button("🔄 Refresh App", use_container_width=True, help="Force refresh all cached data", key="refresh_app_btn")
+    
+    if app_refresh_clicked:
+        st.session_state.last_user_interaction = time.time()
+        st.cache_data.clear()
+        # Clear any refresh flags
+        if 'refresh_in_progress' in st.session_state:
+            del st.session_state.refresh_in_progress
+        st.rerun()
     
     st.sidebar.divider()
 

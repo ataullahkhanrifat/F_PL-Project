@@ -14,6 +14,7 @@ import requests
 import json
 import sys
 import os
+import time
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
 def fetch_current_season_data():
@@ -108,14 +109,17 @@ def create_current_season_page(players_df):
     with col2:
         if st.button("🚀 Squad Optimizer", key="goto_optimizer_from_season"):
             st.session_state.current_page = 'optimizer'
+            st.session_state.last_user_interaction = time.time()
             st.rerun()
     with col3:
         if st.button("📈 Player Stats", key="goto_stats_from_season"):
             st.session_state.current_page = 'stats'
+            st.session_state.last_user_interaction = time.time()
             st.rerun()
     with col4:
         if st.button("🗓️ Next 3 Gameweeks", key="goto_fixtures_from_season"):
             st.session_state.current_page = 'fixtures'
+            st.session_state.last_user_interaction = time.time()
             st.rerun()
     
     st.divider()
@@ -152,12 +156,13 @@ def create_current_season_page(players_df):
     st.divider()
     
     # Create tabs for different analyses
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🔥 Current GW", 
         "📈 Previous GW", 
         "🏆 Season Leaders",
         "📊 Form Analysis",
-        "💎 Value Players"
+        "💎 Value Players",
+        "⚽ Match Points"
     ])
     
     with tab1:
@@ -174,6 +179,9 @@ def create_current_season_page(players_df):
     
     with tab5:
         display_value_players(season_df)
+    
+    with tab6:
+        display_match_points(season_df, current_gw, all_events)
 
 def display_current_gameweek(season_df, current_gw):
     """Display current gameweek top performers"""
@@ -588,3 +596,206 @@ def display_value_players(season_df):
     
     fig.update_layout(height=500)
     st.plotly_chart(fig, use_container_width=True)
+
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def fetch_current_gameweek_player_data(current_gw):
+    """Fetch individual player data for the current gameweek only"""
+    try:
+        # Fetch live data for current gameweek
+        url = f"https://fantasy.premierleague.com/api/event/{current_gw}/live/"
+        response = requests.get(url)
+        response.raise_for_status()
+        live_data = response.json()
+        
+        # Fetch main static data for player/team mappings
+        static_response = requests.get("https://fantasy.premierleague.com/api/bootstrap-static/")
+        static_response.raise_for_status()
+        static_data = static_response.json()
+        
+        # Create mappings
+        teams = {team['id']: team['name'] for team in static_data['teams']}
+        positions = {pos['id']: pos['singular_name'] for pos in static_data['element_types']}
+        players_map = {player['id']: player for player in static_data['elements']}
+        
+        # Process live player data
+        current_gw_data = []
+        
+        for element in live_data['elements']:
+            player_id = element['id']
+            player_info = players_map.get(player_id, {})
+            
+            if not player_info:
+                continue
+                
+            # Get player stats for current gameweek
+            stats = element.get('stats', {})
+            explain = element.get('explain', [])
+            
+            # Calculate gameweek points from explain data
+            gw_points = 0
+            minutes = stats.get('minutes', 0)
+            goals = stats.get('goals_scored', 0)
+            assists = stats.get('assists', 0)
+            clean_sheets = stats.get('clean_sheets', 0)
+            goals_conceded = stats.get('goals_conceded', 0)
+            own_goals = stats.get('own_goals', 0)
+            penalties_saved = stats.get('penalties_saved', 0)
+            penalties_missed = stats.get('penalties_missed', 0)
+            yellow_cards = stats.get('yellow_cards', 0)
+            red_cards = stats.get('red_cards', 0)
+            saves = stats.get('saves', 0)
+            bonus = stats.get('bonus', 0)
+            
+            # Calculate total points for this gameweek
+            for item in explain:
+                for detail in item.get('stats', []):
+                    gw_points += detail.get('points', 0)
+            
+            # Only include players who played or have points
+            if minutes > 0 or gw_points > 0:
+                current_gw_data.append({
+                    'id': player_id,
+                    'name': f"{player_info['first_name']} {player_info['second_name']}",
+                    'web_name': player_info['web_name'],
+                    'team': teams[player_info['team']],
+                    'position': positions[player_info['element_type']],
+                    'cost': player_info['now_cost'] / 10.0,
+                    'gw_points': gw_points,
+                    'minutes': minutes,
+                    'goals': goals,
+                    'assists': assists,
+                    'clean_sheets': clean_sheets,
+                    'goals_conceded': goals_conceded,
+                    'own_goals': own_goals,
+                    'penalties_saved': penalties_saved,
+                    'penalties_missed': penalties_missed,
+                    'yellow_cards': yellow_cards,
+                    'red_cards': red_cards,
+                    'saves': saves,
+                    'bonus': bonus,
+                    'selected_by_percent': float(player_info['selected_by_percent'])
+                })
+        
+        return pd.DataFrame(current_gw_data), current_gw
+    
+    except Exception as e:
+        st.error(f"Error fetching current gameweek data: {str(e)}")
+        return None, None
+
+def display_match_points(season_df, current_gw, all_events):
+    """Display current gameweek match points - individual player performance only"""
+    st.markdown("### ⚽ Current Gameweek Match Points")
+    st.markdown("**Individual player performance in the current gameweek only**")
+    
+    if not current_gw:
+        st.error("❌ Unable to determine current gameweek.")
+        return
+    
+    # Fetch current gameweek player data
+    with st.spinner(f"🔄 Loading Gameweek {current_gw} player data..."):
+        gw_df, gw_num = fetch_current_gameweek_player_data(current_gw)
+    
+    if gw_df is None or gw_df.empty:
+        st.info(f"⏳ No player data available for Gameweek {current_gw} yet.")
+        return
+    
+    # Display gameweek info
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("🏆 Gameweek", f"GW {gw_num}")
+    with col2:
+        total_players = len(gw_df)
+        st.metric("👥 Players with Data", total_players)
+    with col3:
+        avg_points = gw_df['gw_points'].mean()
+        st.metric("📊 Average Points", f"{avg_points:.1f}")
+    
+    st.divider()
+    
+    # Position filter
+    position_filter = st.selectbox(
+        "🎯 Filter by Position:",
+        ["All Positions"] + sorted(gw_df['position'].unique().tolist()),
+        key="match_points_position_filter"
+    )
+    
+    # Team filter
+    team_filter = st.selectbox(
+        "🏠 Filter by Team:",
+        ["All Teams"] + sorted(gw_df['team'].unique().tolist()),
+        key="match_points_team_filter"
+    )
+    
+    # Apply filters
+    filtered_df = gw_df.copy()
+    if position_filter != "All Positions":
+        filtered_df = filtered_df[filtered_df['position'] == position_filter]
+    if team_filter != "All Teams":
+        filtered_df = filtered_df[filtered_df['team'] == team_filter]
+    
+    # Sort by points descending
+    filtered_df = filtered_df.sort_values('gw_points', ascending=False).reset_index(drop=True)
+    
+    if filtered_df.empty:
+        st.info("No players found with the selected filters.")
+        return
+    
+    # Display player table
+    st.markdown(f"#### 📋 Player Performance - Gameweek {gw_num}")
+    st.markdown(f"**Showing {len(filtered_df)} players**")
+    
+    # Prepare display table
+    display_df = filtered_df[[
+        'web_name', 'team', 'position', 'gw_points', 'minutes', 
+        'goals', 'assists', 'clean_sheets', 'goals_conceded', 
+        'yellow_cards', 'red_cards', 'bonus', 'cost'
+    ]].copy()
+    
+    # Rename columns for better display
+    display_df.columns = [
+        'Player', 'Team', 'Pos', 'Points', 'Mins', 
+        'Goals', 'Assists', 'CS', 'GC', 
+        'YC', 'RC', 'Bonus', 'Cost (£m)'
+    ]
+    
+    # Format cost
+    display_df['Cost (£m)'] = display_df['Cost (£m)'].round(1)
+    
+    # Color coding for points
+    def highlight_points(row):
+        if row['Points'] >= 10:
+            return ['background-color: #90EE90'] * len(row)  # Light green for 10+ points
+        elif row['Points'] >= 6:
+            return ['background-color: #FFE4B5'] * len(row)  # Light orange for 6+ points
+        elif row['Points'] <= 0:
+            return ['background-color: #FFB6C1'] * len(row)  # Light red for 0 or negative points
+        else:
+            return [''] * len(row)
+    
+    # Display table with styling
+    styled_df = display_df.style.apply(highlight_points, axis=1)
+    st.dataframe(styled_df, use_container_width=True, hide_index=True)
+    
+    # Summary statistics
+    st.markdown("#### 📊 Gameweek Summary")
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        top_scorer = filtered_df.loc[filtered_df['gw_points'].idxmax()]
+        st.metric(
+            "🏆 Top Scorer", 
+            f"{top_scorer['web_name']}", 
+            f"{top_scorer['gw_points']} pts"
+        )
+    
+    with col2:
+        players_10plus = len(filtered_df[filtered_df['gw_points'] >= 10])
+        st.metric("⭐ 10+ Points", players_10plus)
+    
+    with col3:
+        players_zero = len(filtered_df[filtered_df['gw_points'] <= 0])
+        st.metric("❌ Zero Points", players_zero)
+    
+    with col4:
+        total_goals = filtered_df['goals'].sum()
+        st.metric("⚽ Total Goals", int(total_goals))

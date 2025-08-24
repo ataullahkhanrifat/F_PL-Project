@@ -9,6 +9,7 @@ import pandas as pd
 import numpy as np
 import sys
 import os
+import time
 
 def _style_dataframe(df):
     """Apply consistent styling to dataframes for better alignment"""
@@ -52,6 +53,7 @@ def create_stats_page(players_df):
     with col3:
         if st.button("🔙 Back to Optimizer", key="back_to_optimizer"):
             st.session_state.current_page = 'optimizer'
+            st.session_state.last_user_interaction = time.time()
             st.rerun()
     
     st.divider()

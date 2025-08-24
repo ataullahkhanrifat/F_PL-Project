@@ -45,6 +45,7 @@ import streamlit as st
 import pandas as pd
 import sys
 import os
+import time
 
 # Add src directory to path for imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
@@ -66,13 +67,18 @@ def create_optimizer_page(players_df):
     st.markdown('<h1 class="main-header">⚽ FPL Squad Optimizer</h1>', unsafe_allow_html=True)
     st.markdown("**Optimize your Fantasy Premier League squad using machine learning and mathematical optimization**")
     
-    st.success(f"✅ Loaded {len(players_df)} available players (filtered for quality and availability)")
+    # Show data and prediction status
+    col1, col2 = st.columns(2)
+    with col1:
+        st.success(f"✅ Loaded {len(players_df)} available players (filtered for quality and availability)")
+
     
     # Navigation button to Stats page
     col1, col2, col3, col4, col5 = st.columns(5)
     with col3:
         if st.button("📊 View Player Stats", key="goto_stats"):
             st.session_state.current_page = 'stats'
+            st.session_state.last_user_interaction = time.time()
             st.rerun()
     
     st.divider()
@@ -109,10 +115,15 @@ def create_optimizer_page(players_df):
         
         # Step 1: Select Team
         all_teams = sorted(players_df['team'].unique().tolist())
+        
+        def on_team_change():
+            st.session_state.last_user_interaction = time.time()
+        
         selected_team = st.selectbox(
             "1️⃣ Select Team",
             options=["Choose a team..."] + all_teams,
-            key="manual_team_select"
+            key="manual_team_select",
+            on_change=on_team_change
         )
         
         if selected_team and selected_team != "Choose a team...":
@@ -120,10 +131,14 @@ def create_optimizer_page(players_df):
             team_players = players_df[players_df['team'] == selected_team]
             available_positions = sorted(team_players['position'].unique().tolist())
             
+            def on_position_change():
+                st.session_state.last_user_interaction = time.time()
+            
             selected_position = st.selectbox(
                 "2️⃣ Select Position",
                 options=["Choose position..."] + available_positions,
-                key="manual_position_select"
+                key="manual_position_select",
+                on_change=on_position_change
             )
             
             if selected_position and selected_position != "Choose position...":
@@ -147,6 +162,8 @@ def create_optimizer_page(players_df):
                     with col2:
                         if not is_selected:
                             if st.button("➕", key=f"add_{idx}", help="Add player"):
+                                # Track user interaction to prevent auto-refresh conflicts
+                                st.session_state.last_user_interaction = time.time()
                                 # Add player to manual selection
                                 st.session_state.manually_selected_players.append({
                                     'index': idx,  # Use dataframe index
@@ -174,6 +191,8 @@ def create_optimizer_page(players_df):
                     st.write(f"• {player['name']} ({player['position']}) - £{player['cost']:.1f}m")
                 with col2:
                     if st.button("❌", key=f"remove_{player['index']}", help="Remove player"):
+                        # Track user interaction to prevent auto-refresh conflicts
+                        st.session_state.last_user_interaction = time.time()
                         st.session_state.manually_selected_players = [
                             p for p in st.session_state.manually_selected_players 
                             if p['index'] != player['index']
@@ -184,6 +203,8 @@ def create_optimizer_page(players_df):
             st.write(f"**Squad:** GK:{position_count['Goalkeeper']} DEF:{position_count['Defender']} MID:{position_count['Midfielder']} FWD:{position_count['Forward']}")
             
             if st.button("🗑️ Clear All Selected Players", type="secondary"):
+                # Track user interaction to prevent auto-refresh conflicts
+                st.session_state.last_user_interaction = time.time()
                 st.session_state.manually_selected_players = []
                 st.rerun()
     
@@ -193,10 +214,14 @@ def create_optimizer_page(players_df):
         st.info("🎯 Select specific players you DON'T want in your team!")
         
         # Step 1: Select Team for exclusion
+        def on_exclude_team_change():
+            st.session_state.last_user_interaction = time.time()
+        
         excluded_team = st.selectbox(
             "1️⃣ Select Team",
             options=["Choose a team..."] + all_teams,
-            key="exclude_team_select"
+            key="exclude_team_select",
+            on_change=on_exclude_team_change
         )
         
         if excluded_team and excluded_team != "Choose a team...":
@@ -204,10 +229,14 @@ def create_optimizer_page(players_df):
             exclude_team_players = players_df[players_df['team'] == excluded_team]
             exclude_available_positions = sorted(exclude_team_players['position'].unique().tolist())
             
+            def on_exclude_position_change():
+                st.session_state.last_user_interaction = time.time()
+            
             excluded_position = st.selectbox(
                 "2️⃣ Select Position",
                 options=["Choose position..."] + exclude_available_positions,
-                key="exclude_position_select"
+                key="exclude_position_select",
+                on_change=on_exclude_position_change
             )
             
             if excluded_position and excluded_position != "Choose position...":
@@ -231,6 +260,8 @@ def create_optimizer_page(players_df):
                     with col2:
                         if not is_excluded:
                             if st.button("🚫", key=f"exclude_{idx}", help="Exclude player"):
+                                # Track user interaction to prevent auto-refresh conflicts
+                                st.session_state.last_user_interaction = time.time()
                                 # Add player to exclusion list
                                 st.session_state.manually_excluded_players.append({
                                     'index': idx,
@@ -257,6 +288,8 @@ def create_optimizer_page(players_df):
                     st.write(f"• {player['name']} ({player['position']}) - £{player['cost']:.1f}m")
                 with col2:
                     if st.button("✅", key=f"include_{player['index']}", help="Remove from exclusion"):
+                        # Track user interaction to prevent auto-refresh conflicts
+                        st.session_state.last_user_interaction = time.time()
                         st.session_state.manually_excluded_players = [
                             p for p in st.session_state.manually_excluded_players 
                             if p['index'] != player['index']
@@ -267,22 +300,36 @@ def create_optimizer_page(players_df):
             st.write(f"**Excluded by Position:** GK:{exclude_position_count['Goalkeeper']} DEF:{exclude_position_count['Defender']} MID:{exclude_position_count['Midfielder']} FWD:{exclude_position_count['Forward']}")
             
             if st.button("🗑️ Clear All Excluded Players", type="secondary", key="clear_excluded"):
+                # Track user interaction to prevent auto-refresh conflicts
+                st.session_state.last_user_interaction = time.time()
                 st.session_state.manually_excluded_players = []
                 st.rerun()
     
     # Team filter
     all_teams = ['All Teams'] + sorted(players_df['team'].unique().tolist())
+    
+    def on_excluded_teams_change():
+        st.session_state.last_user_interaction = time.time()
+    
     excluded_teams = st.sidebar.multiselect(
         "Exclude Teams",
         options=all_teams[1:],  # Exclude 'All Teams' from options
-        help="Select teams to exclude from optimization"
+        help="Select teams to exclude from optimization",
+        on_change=on_excluded_teams_change
     )
     
     # FDR Settings
     fdr_settings = st.sidebar.expander("🌟 FDR (Fixture Difficulty) Settings")
     with fdr_settings:
-        use_fdr = st.checkbox("Use FDR in optimization", value=True, 
-                             help="Consider fixture difficulty when selecting players")
+        def on_fdr_change():
+            st.session_state.last_user_interaction = time.time()
+        
+        use_fdr = st.checkbox(
+            "Use FDR in optimization", 
+            value=True, 
+            help="Consider fixture difficulty when selecting players",
+            on_change=on_fdr_change
+        )
         if use_fdr:
             st.info("Lower FDR = easier fixtures = higher player value")
             fdr_attack_weight = st.slider("Attack FDR Impact", 0.0, 0.3, 0.1, 0.05, 
@@ -296,7 +343,15 @@ def create_optimizer_page(players_df):
     team_position_limits = st.sidebar.expander("🏆 Team Position Limits")
     with team_position_limits:
         st.info("Prevent algorithm from selecting too many players of same position from one team")
-        selected_limit_teams = st.multiselect("Select teams to limit", all_teams[1:])
+        
+        def on_limit_teams_change():
+            st.session_state.last_user_interaction = time.time()
+        
+        selected_limit_teams = st.multiselect(
+            "Select teams to limit", 
+            all_teams[1:],
+            on_change=on_limit_teams_change
+        )
         
         team_pos_limits = {}
         for team in selected_limit_teams:
@@ -321,7 +376,15 @@ def create_optimizer_page(players_df):
     with team_requirements:
         st.info("Set exact number of players from specific teams")
         all_teams_list = sorted(players_df['team'].unique().tolist()) if players_df is not None else []
-        selected_teams = st.multiselect("Select teams", all_teams_list)
+        
+        def on_teams_change():
+            st.session_state.last_user_interaction = time.time()
+        
+        selected_teams = st.multiselect(
+            "Select teams", 
+            all_teams_list,
+            on_change=on_teams_change
+        )
         
         team_reqs = {}
         for team in selected_teams:
@@ -368,6 +431,8 @@ def create_optimizer_page(players_df):
     
     # Optimize button
     if st.sidebar.button("🚀 Optimize Squad", type="primary"):
+        # Track user interaction to prevent auto-refresh conflicts
+        st.session_state.last_user_interaction = time.time()
         
         # Filter data based on user selections
         filtered_df = players_df.copy()
