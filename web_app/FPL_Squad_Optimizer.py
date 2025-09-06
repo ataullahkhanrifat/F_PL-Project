@@ -342,27 +342,88 @@ def create_optimizer_page(players_df):
     # Team Position Limits
     team_position_limits = st.sidebar.expander("🏆 Team Position Limits")
     with team_position_limits:
-        st.info("Prevent algorithm from selecting too many players of same position from one team")
-        
+                
         def on_limit_teams_change():
             st.session_state.last_user_interaction = time.time()
         
+        def on_position_limit_change():
+            """Handle position limit changes"""
+            st.session_state.last_user_interaction = time.time()
+        
+        # Initialize session state for team limits if not exists
+        if 'selected_limit_teams' not in st.session_state:
+            st.session_state.selected_limit_teams = []
+        
+        # Update session state when teams change
         selected_limit_teams = st.multiselect(
             "Select teams to limit", 
             all_teams[1:],
+            default=st.session_state.selected_limit_teams,
+            key="team_limit_selector",
             on_change=on_limit_teams_change
         )
+        
+        # Update session state
+        st.session_state.selected_limit_teams = selected_limit_teams
         
         team_pos_limits = {}
         for team in selected_limit_teams:
             st.write(f"**{team} Limits:**")
+            
+            # Initialize default values for this team if not set
+            def_key = f"def_limit_{team}"
+            mid_key = f"mid_limit_{team}"
+            fwd_key = f"fwd_limit_{team}"
+            gk_key = f"gk_limit_{team}"
+            
+            if def_key not in st.session_state:
+                st.session_state[def_key] = 3  # More reasonable default
+            if mid_key not in st.session_state:
+                st.session_state[mid_key] = 3  # More reasonable default
+            if fwd_key not in st.session_state:
+                st.session_state[fwd_key] = 3  # More reasonable default
+            if gk_key not in st.session_state:
+                st.session_state[gk_key] = 2   # Keep at 2 for goalkeepers
+            
             col1, col2 = st.columns(2)
             with col1:
-                def_limit = st.number_input(f"Max Defenders", min_value=0, max_value=3, value=2, key=f"def_{team}")
-                fwd_limit = st.number_input(f"Max Forwards", min_value=0, max_value=3, value=1, key=f"fwd_{team}")
+                def_limit = st.number_input(
+                    f"Max Defenders", 
+                    min_value=0, 
+                    max_value=5, 
+                    value=st.session_state[def_key],
+                    key=def_key,
+                    help=f"Maximum defenders from {team}. Low values may cause optimization to fail.",
+                    on_change=on_position_limit_change
+                )
+                fwd_limit = st.number_input(
+                    f"Max Forwards", 
+                    min_value=0, 
+                    max_value=3, 
+                    value=st.session_state[fwd_key],
+                    key=fwd_key,
+                    help=f"Maximum forwards from {team}. Low values may cause optimization to fail.",
+                    on_change=on_position_limit_change
+                )
             with col2:
-                mid_limit = st.number_input(f"Max Midfielders", min_value=0, max_value=3, value=2, key=f"mid_{team}")
-                gk_limit = st.number_input(f"Max Goalkeepers", min_value=0, max_value=2, value=1, key=f"gk_{team}")
+                mid_limit = st.number_input(
+                    f"Max Midfielders", 
+                    min_value=0, 
+                    max_value=5, 
+                    value=st.session_state[mid_key],
+                    key=mid_key,
+                    help=f"Maximum midfielders from {team}. Low values may cause optimization to fail.",
+                    on_change=on_position_limit_change
+                )
+                gk_limit = st.number_input(
+                    f"Max Goalkeepers", 
+                    min_value=0, 
+                    max_value=2, 
+                    value=st.session_state[gk_key],
+                    key=gk_key,
+                    help=f"Maximum goalkeepers from {team}. Low values may cause optimization to fail.",
+                    on_change=on_position_limit_change
+                )
             
             team_pos_limits[team] = {
                 'Defender': def_limit,
@@ -690,6 +751,33 @@ def create_optimizer_page(players_df):
                 st.write(f"- Team Requirements: {team_reqs}")
             if team_pos_limits:
                 st.write(f"- Team Position Limits: {len(team_pos_limits)} teams")
+                for team, limits in team_pos_limits.items():
+                    st.write(f"  - {team}: {limits}")
+            
+            # Suggestions for fixing the issue
+            st.info("💡 **Try relaxing some constraints or increasing the budget:**")
+            suggestions = []
+            
+            if team_pos_limits:
+                suggestions.append("• **Team Position Limits**: Try increasing the position limits (recommended: 2-3 for defenders/midfielders)")
+            
+            if min_budget_usage > 0.95:
+                suggestions.append("• **Budget Usage**: Try reducing minimum budget usage below 95%")
+            
+            if st.session_state.manually_selected_players:
+                suggestions.append("• **Manual Selections**: Try removing some manually selected players")
+            
+            if team_reqs:
+                suggestions.append("• **Team Requirements**: Try reducing exact team requirements")
+            
+            if excluded_teams:
+                suggestions.append("• **Excluded Teams**: Try including more teams in the optimization")
+            
+            if not suggestions:
+                suggestions.append("• Try increasing the budget or reducing other constraints")
+            
+            for suggestion in suggestions:
+                st.write(suggestion)
             
             st.info("💡 Try relaxing some constraints or increasing the budget.")
 
